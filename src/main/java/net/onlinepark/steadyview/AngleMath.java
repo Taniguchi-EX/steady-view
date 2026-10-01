@@ -9,7 +9,6 @@ public final class AngleMath {
 	public static final float STEP = 45.0F;
 	public static final float MIN_PITCH = -90.0F;
 	public static final float MAX_PITCH = 90.0F;
-	private static final float EPSILON = 1.0E-3F;
 
 	private AngleMath() {
 	}
@@ -34,9 +33,9 @@ public final class AngleMath {
 		return clampPitch(snapPitch(pitch) + steps * STEP);
 	}
 
-	/** ヨー・ピッチがどちらも45度単位になっているか。 */
+	/** ヨー・ピッチがどちらも45度単位ちょうどになっているか。わずかな誤差もずれとして扱う（そろえた値は誤差なく表せるため）。 */
 	public static boolean isSnapped(final float yaw, final float pitch) {
-		return Math.abs(yaw - snapYaw(yaw)) < EPSILON && Math.abs(pitch - snapPitch(pitch)) < EPSILON;
+		return yaw == snapYaw(yaw) && pitch == snapPitch(pitch);
 	}
 
 	private static float clampPitch(final float pitch) {

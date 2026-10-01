@@ -1,0 +1,12 @@
+{
+	"schemaVersion": 1,
+	"id": "steadyview-test",
+	"version": "1.0.0",
+	"name": "Steady View Test",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"net.onlinepark.steadyview.test.SteadyViewClientGameTest"
+		]
+	}
+}

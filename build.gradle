@@ -37,6 +37,18 @@ test {
 	useJUnitPlatform()
 }
 
+// ゲーム内の自動テスト（src/gametest）。runClientGameTestで実行する
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "steadyview-test"
+		enableGameTests = false
+		enableClientGameTests = true
+		// マイクラのEULAへの同意（オンライン公園のサーバ構築時に同意済み）
+		eula = true
+	}
+}
+
 processResources {
 	def version = project.version
 	inputs.property "version", version

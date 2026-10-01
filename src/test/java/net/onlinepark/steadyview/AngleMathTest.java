@@ -64,5 +64,7 @@ class AngleMathTest {
 		assertTrue(AngleMath.isSnapped(360.0F, -90.0F));
 		assertFalse(AngleMath.isSnapped(10.0F, 0.0F));
 		assertFalse(AngleMath.isSnapped(0.0F, 12.5F));
+		// マウスで回した後に残るわずかな誤差もずれとして扱う（ゲーム内テストで実際に出た値）
+		assertFalse(AngleMath.isSnapped(45.000008F, 0.0F));
 	}
 }
