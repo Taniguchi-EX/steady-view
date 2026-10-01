@@ -1,0 +1,30 @@
+{
+	"schemaVersion": 1,
+	"id": "steadyview",
+	"version": "${version}",
+	"name": "Steady View",
+	"description": "マウスによる視点移動をやめ、キーボードで45度単位に視点を切り替えるModです。ブロックやエンティティへの操作は画面中央ではなくマウスカーソルの位置で行います。酔いやすい人向け。",
+	"authors": [
+		"Online Park"
+	],
+	"license": "CC0-1.0",
+	"icon": "assets/steadyview/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"net.onlinepark.steadyview.SteadyViewClient"
+		]
+	},
+	"mixins": [
+		{
+			"config": "steadyview.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

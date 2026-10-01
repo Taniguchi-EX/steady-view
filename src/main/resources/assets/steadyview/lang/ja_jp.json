@@ -1,0 +1,11 @@
+{
+	"key.category.steadyview.steadyview": "Steady View",
+	"key.steadyview.toggle": "Steady Viewの有効・無効",
+	"key.steadyview.turn_left": "左に45度回る",
+	"key.steadyview.turn_right": "右に45度回る",
+	"key.steadyview.look_up": "45度上を向く",
+	"key.steadyview.look_down": "45度下を向く",
+	"key.steadyview.level_view": "水平に戻す",
+	"message.steadyview.enabled": "Steady View: 有効",
+	"message.steadyview.disabled": "Steady View: 無効"
+}

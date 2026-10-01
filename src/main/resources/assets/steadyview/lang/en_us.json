@@ -1,0 +1,11 @@
+{
+	"key.category.steadyview.steadyview": "Steady View",
+	"key.steadyview.toggle": "Toggle Steady View",
+	"key.steadyview.turn_left": "Turn Left 45°",
+	"key.steadyview.turn_right": "Turn Right 45°",
+	"key.steadyview.look_up": "Look Up 45°",
+	"key.steadyview.look_down": "Look Down 45°",
+	"key.steadyview.level_view": "Level View",
+	"message.steadyview.enabled": "Steady View: On",
+	"message.steadyview.disabled": "Steady View: Off"
+}
