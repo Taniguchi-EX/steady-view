@@ -53,6 +53,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 			connection.waitForChunksRender();
 			testRotation(context, singleplayer.getServer());
 			testEdgeTurn(context, singleplayer.getServer());
+			testKeepViewWhileRiding(context, singleplayer.getServer());
 			testCursorPick(context, singleplayer.getServer());
 		}
 
@@ -301,6 +302,55 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		context.getInput().setCursorPos(width / 2.0, height / 2.0);
 		context.waitTicks(10);
 		assertRotation(context, 0.0F, 0.0F, "画面中央に戻したのに回った");
+	}
+
+	/** ボートに乗ったとき・ボートが曲がったときに、視点が自動で変わらないこと。設定でオフにすると通常どおり変わること */
+	private static void testKeepViewWhileRiding(final ClientGameTestContext context, final TestServerContext server) {
+		setUpStage(context, server);
+		// ボートは曲がるときに少しずつ前へ進むため、ぶつからないよう周りのブロックを片付けてから水を張る
+		server.runCommand("fill -6 -60 -6 6 -56 6 minecraft:air");
+		server.runCommand("fill -6 -61 -6 6 -61 6 minecraft:water");
+		// プレイヤーは南（0度）を向いている。ボートは西（90度）向き
+		// 水中に出すと沈んだ扱いになり、数秒で降ろされるため、水面の上に出す
+		server.runCommand("summon minecraft:oak_boat 0.5 -60 0.5 {Rotation:[90f,0f]}");
+		context.waitTicks(5);
+		server.runCommand("ride @p mount @e[type=minecraft:oak_boat,limit=1]");
+		context.waitTicks(10);
+		check(context.computeOnClient(minecraft -> minecraft.player.isPassenger()), "ボートに乗れていない");
+		// 通常は、ボートに乗った瞬間にボートの向き（90度）を向く
+		assertRotation(context, 0.0F, 0.0F, "ボートに乗ったときに視点が変わった");
+
+		// 左に曲がり続けても、視点は変わらない（ボートだけが曲がる）
+		float boatYaw = context.computeOnClient(minecraft -> minecraft.player.getVehicle().getYRot());
+		context.getInput().holdKeyFor(o -> o.keyLeft, 40);
+		float turnedBoatYaw = context.computeOnClient(minecraft -> minecraft.player.getVehicle().getYRot());
+		check(Math.abs(turnedBoatYaw - boatYaw) > 20.0F, "ボートが曲がっていない（" + boatYaw + " → " + turnedBoatYaw + "）");
+		assertRotation(context, 0.0F, 0.0F, "ボートが曲がったときに視点が変わった");
+		context.takeScreenshot("steadyview-07-boat");
+
+		// 乗っている間も、キーでは通常どおり回れる
+		pressSteadyViewKey(context, "turn_left");
+		context.waitTicks(5);
+		assertRotation(context, -45.0F, 0.0F, "ボートに乗っている間にキーで回れない");
+		pressSteadyViewKey(context, "turn_right");
+
+		// 設定でオフにすると、ボートが曲がるのに合わせて、視点も45度単位で変わる
+		context.runOnClient(minecraft -> SteadyViewClient.config().keepViewWhileRiding = false);
+		float boatYawBefore = context.computeOnClient(minecraft -> minecraft.player.getVehicle().getYRot());
+		context.getInput().holdKeyFor(o -> o.keyLeft, 80);
+		float boatTurn = context.computeOnClient(minecraft -> minecraft.player.getVehicle().getYRot()) - boatYawBefore;
+		float playerYaw = context.computeOnClient(minecraft -> minecraft.player.getYRot());
+		check(Math.abs(boatTurn) > 45.0F, "ボートが45度以上曲がっていない（" + boatTurn + "）");
+		check(playerYaw != 0.0F && playerYaw % 45.0F == 0.0F && Math.abs(playerYaw - boatTurn) <= 22.5F + DELTA,
+			"設定をオフにしたとき、視点がボートに45度単位で追従していない（ボート: " + boatTurn + " / 視点: " + playerYaw + "）");
+		context.runOnClient(minecraft -> SteadyViewClient.config().keepViewWhileRiding = true);
+
+		// 降りる
+		server.runCommand("ride @p dismount");
+		context.waitTicks(10);
+		check(!context.computeOnClient(minecraft -> minecraft.player.isPassenger()), "ボートから降りられない");
+		server.runCommand("kill @e[type=minecraft:oak_boat]");
+		server.runCommand("fill -6 -61 -6 6 -61 6 minecraft:grass_block");
 	}
 
 	/** カーソルを画面の端に置き、その時点でカーソルが指している方向を返す（端での処理は次のtickの終わりに行われる） */

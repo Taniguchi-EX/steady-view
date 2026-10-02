@@ -93,8 +93,12 @@ public class SteadyViewClient implements ClientModInitializer {
 
 		LocalPlayer player = minecraft.player;
 		if (!enabled || player == null) {
+			RideViewKeeper.reset();
 			return;
 		}
+
+		// 乗り物によって自動で変わった向きを戻す（Mod自身による変更より先に行う）
+		RideViewKeeper.restoreIfChanged(player);
 
 		if (level) {
 			ViewSnapper.level(player);
@@ -109,6 +113,8 @@ public class SteadyViewClient implements ClientModInitializer {
 
 		// ワールドに入った直後やテレポートの後等、向きがずれていたらそろえる
 		ViewSnapper.snapIfNeeded(player);
+
+		RideViewKeeper.record(player);
 	}
 
 	private static void setEnabled(final Minecraft minecraft, final boolean value) {

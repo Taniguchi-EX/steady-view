@@ -26,7 +26,8 @@ public final class ViewSnapper {
 		}
 	}
 
-	private static void setRotation(final LocalPlayer player, final float yaw, final float pitch) {
+	/** 向きを補間なしで切り替える。 */
+	public static void setRotation(final LocalPlayer player, final float yaw, final float pitch) {
 		player.setYRot(yaw);
 		player.setXRot(pitch);
 		// 前回の値も同じにして、描画時の補間で回って見えないようにする
