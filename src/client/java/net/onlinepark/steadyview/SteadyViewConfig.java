@@ -25,6 +25,8 @@ public final class SteadyViewConfig {
 	public boolean turnAtScreenEdge = true;
 	/** 乗り物（ボート・トロッコ・馬等）に乗っている間、マイクラ本体による自動的な視点の変更を打ち消すか */
 	public boolean keepViewWhileRiding = true;
+	/** 弓・雪玉等の飛ばすアイテムを、カーソルの方向へ飛ばすか */
+	public boolean aimItemsAtCursor = true;
 	/** マイクラ本体のおすすめ設定（RecommendedSettings）を反映済みか。falseに戻すと、次の起動時にもう一度反映する */
 	public boolean recommendedSettingsApplied = false;
 
@@ -42,6 +44,7 @@ public final class SteadyViewConfig {
 				config.hideCrosshair = getBoolean(properties, "hideCrosshair", config.hideCrosshair);
 				config.turnAtScreenEdge = getBoolean(properties, "turnAtScreenEdge", config.turnAtScreenEdge);
 				config.keepViewWhileRiding = getBoolean(properties, "keepViewWhileRiding", config.keepViewWhileRiding);
+				config.aimItemsAtCursor = getBoolean(properties, "aimItemsAtCursor", config.aimItemsAtCursor);
 				config.recommendedSettingsApplied = getBoolean(properties, "recommendedSettingsApplied", config.recommendedSettingsApplied);
 			} catch (IOException e) {
 				SteadyViewClient.LOGGER.warn("Failed to read {}. Using defaults.", path, e);
@@ -65,6 +68,7 @@ public final class SteadyViewConfig {
 		properties.setProperty("hideCrosshair", Boolean.toString(this.hideCrosshair));
 		properties.setProperty("turnAtScreenEdge", Boolean.toString(this.turnAtScreenEdge));
 		properties.setProperty("keepViewWhileRiding", Boolean.toString(this.keepViewWhileRiding));
+		properties.setProperty("aimItemsAtCursor", Boolean.toString(this.aimItemsAtCursor));
 		properties.setProperty("recommendedSettingsApplied", Boolean.toString(this.recommendedSettingsApplied));
 		try {
 			Files.createDirectories(this.path.getParent());

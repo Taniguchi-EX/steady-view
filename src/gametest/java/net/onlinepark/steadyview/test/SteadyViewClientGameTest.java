@@ -16,6 +16,8 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.animal.pig.Pig;
 import net.minecraft.world.level.block.Blocks;
@@ -62,6 +64,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 			TestDedicatedServerConnection connection = server.connect()) {
 			connection.waitForChunksRender();
 			testInteractionOnDedicatedServer(context, server, connection);
+			testProjectileAim(context, server, connection);
 		}
 	}
 
@@ -236,6 +239,109 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		double[] cursor = context.computeOnClient(minecraft -> new double[]{minecraft.mouseHandler.xpos(), minecraft.mouseHandler.ypos()});
 		check(Math.abs(serverYaw - 45.0F) < DELTA,
 			"サーバ上のプレイヤーの向きが45度になっていない（サーバ: " + serverYaw + " / クライアント: " + clientYaw + " / カーソル: " + cursor[0] + ", " + cursor[1] + "）");
+	}
+
+	/** Modなしのサーバで、雪玉・弓矢がカーソルの方向へ飛ぶこと。画面の視点は動かず、サーバ上の向きもすぐ元に戻ること */
+	private static void testProjectileAim(
+		final ClientGameTestContext context, final TestDedicatedServerContext server, final TestDedicatedServerConnection connection
+	) {
+		setUpStage(context, server);
+		server.runCommand("kill @e[type=!minecraft:player]");
+		Window window = context.computeOnClient(Minecraft::getWindow);
+
+		// 雪玉: 左上の空をカーソルで指して投げる
+		server.runCommand("item replace entity @a weapon.mainhand with minecraft:snowball 16");
+		context.waitTicks(5);
+		context.getInput().setCursorPos(window.getScreenWidth() * 0.2, window.getScreenHeight() * 0.25);
+		context.waitTicks(2);
+		Vec3 snowballAim = cursorDirection(context);
+		context.getInput().pressKey(o -> o.keyUse);
+		context.waitTicks(1);
+		connection.waitForServerboundPackets();
+		Vec3 snowballVelocity = server.computeOnServer(s -> {
+			List<? extends Entity> snowballs = s.overworld().getEntities(EntityTypes.SNOWBALL, entity -> true);
+			return snowballs.isEmpty() ? null : snowballs.getFirst().getDeltaMovement();
+		});
+		check(snowballVelocity != null, "雪玉が投げられていない");
+		assertFlewToward(snowballAim, snowballVelocity, "雪玉");
+		assertRotation(context, 0.0F, 0.0F, "雪玉を投げたときに視点が動いた");
+		assertServerRotationRestored(context, server, connection, "雪玉");
+
+		// 弓: 右上の空をカーソルで指し、引き絞って放す
+		server.runCommand("kill @e[type=minecraft:snowball]");
+		server.runCommand("item replace entity @a weapon.mainhand with minecraft:bow");
+		server.runCommand("give @a minecraft:arrow 16");
+		context.waitTicks(5);
+		context.getInput().setCursorPos(window.getScreenWidth() * 0.75, window.getScreenHeight() * 0.3);
+		context.waitTicks(2);
+		// 弓を引き絞ると視野が狭まり、同じカーソル位置でも指す方向が変わるため、放す直前の方向を狙いとする
+		context.getInput().holdKey(o -> o.keyUse);
+		context.waitTicks(20);
+		Vec3 arrowAim = cursorDirection(context);
+		context.getInput().releaseKey(o -> o.keyUse);
+		context.waitTicks(1);
+		connection.waitForServerboundPackets();
+		Vec3 arrowVelocity = server.computeOnServer(s -> {
+			List<? extends Entity> arrows = s.overworld().getEntities(EntityTypes.ARROW, entity -> true);
+			return arrows.isEmpty() ? null : arrows.getFirst().getDeltaMovement();
+		});
+		check(arrowVelocity != null, "矢が放たれていない");
+		assertFlewToward(arrowAim, arrowVelocity, "矢");
+		assertRotation(context, 0.0F, 0.0F, "弓を放したときに視点が動いた");
+		assertServerRotationRestored(context, server, connection, "矢");
+		context.takeScreenshot("steadyview-08-projectiles");
+
+		// 設定でオフにすると、通常どおり正面（画面中央）へ飛ぶ
+		// （正面のブロックに当たってすぐ消えないよう、ブロックを片付けてから投げる）
+		server.runCommand("kill @e[type=minecraft:arrow]");
+		server.runCommand("fill -4 -60 -1 4 -56 6 minecraft:air");
+		server.runCommand("item replace entity @a weapon.mainhand with minecraft:snowball 16");
+		context.runOnClient(minecraft -> SteadyViewClient.config().aimItemsAtCursor = false);
+		context.waitTicks(5);
+		context.getInput().pressKey(o -> o.keyUse);
+		context.waitTicks(1);
+		connection.waitForServerboundPackets();
+		Vec3 straightVelocity = server.computeOnServer(s -> {
+			List<? extends Entity> snowballs = s.overworld().getEntities(EntityTypes.SNOWBALL, entity -> true);
+			return snowballs.isEmpty() ? null : snowballs.getFirst().getDeltaMovement();
+		});
+		context.runOnClient(minecraft -> SteadyViewClient.config().aimItemsAtCursor = true);
+		check(straightVelocity != null, "設定をオフにしたとき、雪玉が投げられていない");
+		assertFlewToward(new Vec3(0.0, 0.0, 1.0), straightVelocity, "設定をオフにしたときの雪玉");
+	}
+
+	private static Vec3 cursorDirection(final ClientGameTestContext context) {
+		return context.computeOnClient(minecraft -> CursorPicker.cursorDirection(minecraft, minecraft.gameRenderer.mainCamera()));
+	}
+
+	/** 飛んでいる物の向きが、狙った向きと合っているか。重力で少し下がるため、左右は3度、上下は8度まで許す */
+	private static void assertFlewToward(final Vec3 aim, final Vec3 velocity, final String name) {
+		double yawDiff = Math.abs(Mth.wrapDegrees(yawOf(velocity) - yawOf(aim)));
+		double pitchDiff = Math.abs(pitchOf(velocity) - pitchOf(aim));
+		check(yawDiff < 3.0 && pitchDiff < 8.0, name + "がカーソルの方向へ飛んでいない（狙い: " + String.format("%.1f, %.1f", yawOf(aim), pitchOf(aim))
+			+ " / 実際: " + String.format("%.1f, %.1f", yawOf(velocity), pitchOf(velocity)) + "）");
+	}
+
+	private static double yawOf(final Vec3 vector) {
+		return Math.toDegrees(Math.atan2(vector.z, vector.x)) - 90.0;
+	}
+
+	private static double pitchOf(final Vec3 vector) {
+		return -Math.toDegrees(Math.atan2(vector.y, Math.sqrt(vector.x * vector.x + vector.z * vector.z)));
+	}
+
+	/** 投げた・放した後、サーバ上のプレイヤーの向きが本来の向き（南・水平）に戻っているか */
+	private static void assertServerRotationRestored(
+		final ClientGameTestContext context, final TestDedicatedServerContext server, final TestDedicatedServerConnection connection, final String name
+	) {
+		context.waitTicks(3);
+		connection.waitForServerboundPackets();
+		float[] rotation = server.computeOnServer(s -> {
+			var player = s.getPlayerList().getPlayers().getFirst();
+			return new float[]{player.getYRot(), player.getXRot()};
+		});
+		check(Math.abs(Mth.wrapDegrees(rotation[0])) < DELTA && Math.abs(rotation[1]) < DELTA,
+			name + "の後、サーバ上の向きが戻っていない（" + rotation[0] + ", " + rotation[1] + "）");
 	}
 
 	/** 南を向いて立ち、正面・左前にブロックを置く（右前は地面のまま） */
