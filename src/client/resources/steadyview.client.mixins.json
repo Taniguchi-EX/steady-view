@@ -5,6 +5,7 @@
 	"client": [
 		"HudMixin",
 		"LocalPlayerMixin",
+		"MouseHandlerAccessor",
 		"MouseHandlerMixin"
 	],
 	"injectors": {

@@ -23,6 +23,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.onlinepark.steadyview.CursorPicker;
 import net.onlinepark.steadyview.RecommendedSettings;
 import net.onlinepark.steadyview.SteadyViewClient;
 import org.joml.Matrix4f;
@@ -43,7 +44,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 	/** 左前に置くブロック。カーソルで狙う */
 	private static final BlockPos LEFT_BLOCK = new BlockPos(2, -59, 3);
 	/** 右前の地面。カーソルで狙って上にブロックを置く */
-	private static final BlockPos RIGHT_GROUND = new BlockPos(-2, -61, 2);
+	private static final BlockPos RIGHT_GROUND = new BlockPos(-1, -61, 3);
 
 	@Override
 	public void runTest(final ClientGameTestContext context) {
@@ -51,6 +52,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 			TestServerConnection connection = singleplayer.getConnection();
 			connection.waitForChunksRender();
 			testRotation(context, singleplayer.getServer());
+			testEdgeTurn(context, singleplayer.getServer());
 			testCursorPick(context, singleplayer.getServer());
 		}
 
@@ -188,7 +190,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 	) {
 		setUpStage(context, server);
 		server.runCommand("gamemode survival @a");
-		server.runCommand("summon minecraft:pig 3.5 -60 1.5 {NoAI:1b,Rotation:[0f,0f]}");
+		server.runCommand("summon minecraft:pig 2.5 -60 2.5 {NoAI:1b,Rotation:[0f,0f]}");
 		server.runCommand("item replace entity @a weapon.mainhand with minecraft:cobblestone 16");
 		context.waitTicks(10);
 
@@ -212,7 +214,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		context.takeScreenshot("steadyview-05-dedicated-after-interaction");
 
 		// 左前のブタをカーソルで狙い、左クリックで攻撃する
-		moveCursorTo(context, new Vec3(3.5, -59.6, 1.5));
+		moveCursorTo(context, new Vec3(2.5, -59.6, 2.5));
 		context.waitTicks(2);
 		check(context.computeOnClient(minecraft -> minecraft.hitResult instanceof EntityHitResult hit && hit.getEntity() instanceof Pig), "カーソルの先のブタを狙っていない");
 		context.getInput().pressKey(options(o -> o.keyAttack));
@@ -224,13 +226,15 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		}), "カーソルの先のブタにダメージが入っていない");
 
 		// サーバにもプレイヤーの向き（45度単位）が伝わっている
+		assertRotation(context, 0.0F, 0.0F, "ブタを狙う前後で向きが変わった");
 		pressSteadyViewKey(context, "turn_right");
 		context.waitTicks(5);
 		connection.waitForServerboundPackets();
-		check(server.computeOnServer(s -> {
-			float yaw = s.getPlayerList().getPlayers().getFirst().getYRot();
-			return Math.abs(yaw - 45.0F) < DELTA;
-		}), "サーバ上のプレイヤーの向きが45度になっていない");
+		float serverYaw = server.computeOnServer(s -> s.getPlayerList().getPlayers().getFirst().getYRot());
+		float clientYaw = context.computeOnClient(minecraft -> minecraft.player.getYRot());
+		double[] cursor = context.computeOnClient(minecraft -> new double[]{minecraft.mouseHandler.xpos(), minecraft.mouseHandler.ypos()});
+		check(Math.abs(serverYaw - 45.0F) < DELTA,
+			"サーバ上のプレイヤーの向きが45度になっていない（サーバ: " + serverYaw + " / クライアント: " + clientYaw + " / カーソル: " + cursor[0] + ", " + cursor[1] + "）");
 	}
 
 	/** 南を向いて立ち、正面・左前にブロックを置く（右前は地面のまま） */
@@ -241,6 +245,85 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		server.runCommand("tp @a 0.5 -60 0.5 0 0");
 		context.waitTicks(10);
 		assertRotation(context, 0.0F, 0.0F, "南を向いていない");
+	}
+
+	/** カーソルを画面の端まで動かすと、その方向に45度回り、カーソルは同じ方向を指したまま内側へ移ること */
+	private static void testEdgeTurn(final ClientGameTestContext context, final TestServerContext server) {
+		setUpStage(context, server);
+		Window window = context.computeOnClient(Minecraft::getWindow);
+		double width = window.getScreenWidth();
+		double height = window.getScreenHeight();
+
+		// 左端: 左に45度回る
+		Vec3 before = pushCursorToEdge(context, 0.0, height * 0.4);
+		assertRotation(context, -45.0F, 0.0F, "左端で左に回っていない");
+		assertCursorInside(context, width, height, "左端で回った後、カーソルが内側に移っていない");
+		assertSameDirection(context, before, "左端で回った後、カーソルが同じ方向を指していない");
+		context.takeScreenshot("steadyview-06-edge-left");
+
+		// 回った後は端から離れるため、続けて回らない
+		context.waitTicks(10);
+		assertRotation(context, -45.0F, 0.0F, "左端で続けて回った");
+
+		// 右端: 右に45度回る
+		before = pushCursorToEdge(context, width - 1.0, height * 0.6);
+		assertRotation(context, 0.0F, 0.0F, "右端で右に回っていない");
+		assertSameDirection(context, before, "右端で回った後、カーソルが同じ方向を指していない");
+
+		// 上端: 45度上を向く。下端: 45度下を向く
+		before = pushCursorToEdge(context, width * 0.3, 0.0);
+		assertRotation(context, 0.0F, -45.0F, "上端で上を向いていない");
+		assertSameDirection(context, before, "上端で回った後、カーソルが同じ方向を指していない");
+		pushCursorToEdge(context, width * 0.5, height - 1.0);
+		assertRotation(context, 0.0F, 0.0F, "下端で下を向いていない");
+
+		// 角: 左右と上下の両方に回る
+		pushCursorToEdge(context, width - 1.0, height - 1.0);
+		assertRotation(context, 45.0F, 45.0F, "右下の角で右下に回っていない");
+		pressSteadyViewKey(context, "level_view");
+		pressSteadyViewKey(context, "turn_left");
+
+		// 真上を向いているときは、上端でそれ以上上を向かない（左右の端なら回る）
+		pressSteadyViewKey(context, "look_up");
+		pressSteadyViewKey(context, "look_up");
+		pushCursorToEdge(context, width * 0.5, 0.0);
+		assertRotation(context, 0.0F, -90.0F, "真上より上を向いた");
+		// 端に置いたまま水平に戻しても、端に「来た」わけではないため、上を向き直さない
+		pressSteadyViewKey(context, "level_view");
+		context.waitTicks(10);
+		assertRotation(context, 0.0F, 0.0F, "上端に置いたまま水平に戻したら、上を向き直した");
+
+		// 設定でオフにすると回らない
+		context.runOnClient(minecraft -> SteadyViewClient.config().turnAtScreenEdge = false);
+		pushCursorToEdge(context, 0.0, height * 0.5);
+		assertRotation(context, 0.0F, 0.0F, "設定でオフにしても端で回った");
+		context.runOnClient(minecraft -> SteadyViewClient.config().turnAtScreenEdge = true);
+		context.getInput().setCursorPos(width / 2.0, height / 2.0);
+		context.waitTicks(10);
+		assertRotation(context, 0.0F, 0.0F, "画面中央に戻したのに回った");
+	}
+
+	/** カーソルを画面の端に置き、その時点でカーソルが指している方向を返す（端での処理は次のtickの終わりに行われる） */
+	private static Vec3 pushCursorToEdge(final ClientGameTestContext context, final double x, final double y) {
+		// 前回の切り替えの後の待ち時間（0.25秒）が終わるのを待つ
+		context.waitTicks(8);
+		context.getInput().setCursorPos(x, y);
+		Vec3 direction = context.computeOnClient(minecraft -> CursorPicker.cursorDirection(minecraft, minecraft.gameRenderer.mainCamera()));
+		context.waitTicks(3);
+		return direction;
+	}
+
+	private static void assertCursorInside(final ClientGameTestContext context, final double width, final double height, final String message) {
+		double[] position = context.computeOnClient(minecraft -> new double[]{minecraft.mouseHandler.xpos(), minecraft.mouseHandler.ypos()});
+		check(position[0] >= 16.0 && position[0] <= width - 16.0 && position[1] >= 16.0 && position[1] <= height - 16.0,
+			message + "（実際: " + position[0] + ", " + position[1] + "）");
+	}
+
+	/** 今のカーソルが指す方向が、before とほぼ同じ（1度以内）か */
+	private static void assertSameDirection(final ClientGameTestContext context, final Vec3 before, final String message) {
+		Vec3 after = context.computeOnClient(minecraft -> CursorPicker.cursorDirection(minecraft, minecraft.gameRenderer.mainCamera()));
+		double angle = Math.toDegrees(Math.acos(Math.max(-1.0, Math.min(1.0, before.dot(after)))));
+		check(angle < 1.0, message + "（ずれ: " + angle + "度）");
 	}
 
 	/** ワールド内の点が画面上に映る位置へ、カーソルを動かす */

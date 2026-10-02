@@ -48,7 +48,7 @@ public final class CursorPicker {
 	}
 
 	/** カーソルの位置を、ワールド内の向き（長さ1）に変換する。 */
-	private static @Nullable Vec3 cursorDirection(final Minecraft minecraft, final Camera camera) {
+	public static @Nullable Vec3 cursorDirection(final Minecraft minecraft, final Camera camera) {
 		Window window = minecraft.getWindow();
 		int width = window.getScreenWidth();
 		int height = window.getScreenHeight();
