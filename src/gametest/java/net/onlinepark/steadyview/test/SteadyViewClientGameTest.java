@@ -23,6 +23,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.onlinepark.steadyview.RecommendedSettings;
 import net.onlinepark.steadyview.SteadyViewClient;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
@@ -65,6 +66,8 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 	private static void testRotation(final ClientGameTestContext context, final TestServerContext server) {
 		check(context.computeOnClient(minecraft -> SteadyViewClient.isEnabled()), "起動時に有効になっていない");
 		check(context.computeOnClient(minecraft -> minecraft.mouseHandler.isMouseGrabbed()), "ゲーム中の状態（grab済み）になっていない");
+
+		testRecommendedSettings(context);
 
 		// 中途半端な向きにテレポートすると、45度単位にそろう
 		server.runCommand("tp @a 0.5 -60 0.5 30 20");
@@ -114,6 +117,36 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		float[] rotation = context.computeOnClient(minecraft -> new float[]{minecraft.player.getYRot(), minecraft.player.getXRot()});
 		check(rotation[0] % 45.0F == 0.0F && rotation[1] % 45.0F == 0.0F,
 			"有効に戻したときに45度単位へそろっていない（実際: " + rotation[0] + ", " + rotation[1] + "）");
+	}
+
+	/**
+	 * マイクラ本体のおすすめ設定が1回だけ反映されること。
+	 * テストの仕組みが各テストの開始前に設定を既定値へ戻すため、起動時の反映結果ではなく、反映の処理を直接呼んで確かめる。
+	 */
+	private static void testRecommendedSettings(final ClientGameTestContext context) {
+		check(context.computeOnClient(minecraft -> SteadyViewClient.config().recommendedSettingsApplied), "起動時におすすめ設定を反映済みと記録されていない");
+
+		context.runOnClient(minecraft -> {
+			SteadyViewClient.config().recommendedSettingsApplied = false;
+			RecommendedSettings.applyOnce(minecraft, SteadyViewClient.config());
+		});
+		check(context.computeOnClient(minecraft -> {
+			Options options = minecraft.options;
+			return !options.bobView().get()
+				&& options.fovEffectScale().get() == 0.0
+				&& options.screenEffectScale().get() == 0.0
+				&& options.damageTiltStrength().get() == 0.0
+				&& options.darknessEffectScale().get() == 0.0
+				&& options.hideLightningFlash().get();
+		}), "おすすめ設定が反映されていない");
+
+		// 反映済みなら、本人が変えた設定を上書きしない
+		context.runOnClient(minecraft -> {
+			minecraft.options.bobView().set(true);
+			RecommendedSettings.applyOnce(minecraft, SteadyViewClient.config());
+		});
+		check(context.computeOnClient(minecraft -> minecraft.options.bobView().get()), "反映済みなのに設定が上書きされた");
+		context.restoreDefaultGameOptions();
 	}
 
 	/** カーソルの位置で狙う物が決まること、照準の先の物ではないこと */

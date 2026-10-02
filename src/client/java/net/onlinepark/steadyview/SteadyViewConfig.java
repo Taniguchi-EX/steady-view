@@ -21,6 +21,10 @@ public final class SteadyViewConfig {
 	public boolean confineCursor = true;
 	/** 有効なとき、画面中央の照準を隠すか */
 	public boolean hideCrosshair = true;
+	/** マイクラ本体のおすすめ設定（RecommendedSettings）を反映済みか。falseに戻すと、次の起動時にもう一度反映する */
+	public boolean recommendedSettingsApplied = false;
+
+	private Path path;
 
 	public static SteadyViewConfig load() {
 		SteadyViewConfig config = new SteadyViewConfig();
@@ -32,28 +36,35 @@ public final class SteadyViewConfig {
 				config.enabledOnStartup = getBoolean(properties, "enabledOnStartup", config.enabledOnStartup);
 				config.confineCursor = getBoolean(properties, "confineCursor", config.confineCursor);
 				config.hideCrosshair = getBoolean(properties, "hideCrosshair", config.hideCrosshair);
+				config.recommendedSettingsApplied = getBoolean(properties, "recommendedSettingsApplied", config.recommendedSettingsApplied);
 			} catch (IOException e) {
 				SteadyViewClient.LOGGER.warn("Failed to read {}. Using defaults.", path, e);
 			}
 		}
 
 		// 新しい項目が増えたときにもファイルへ反映されるよう、毎回書き直す
-		config.save(path);
+		config.path = path;
+		config.save();
 		return config;
 	}
 
-	private void save(final Path path) {
+	public void save() {
+		if (this.path == null) {
+			return;
+		}
+
 		Properties properties = new Properties();
 		properties.setProperty("enabledOnStartup", Boolean.toString(this.enabledOnStartup));
 		properties.setProperty("confineCursor", Boolean.toString(this.confineCursor));
 		properties.setProperty("hideCrosshair", Boolean.toString(this.hideCrosshair));
+		properties.setProperty("recommendedSettingsApplied", Boolean.toString(this.recommendedSettingsApplied));
 		try {
-			Files.createDirectories(path.getParent());
-			try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
+			Files.createDirectories(this.path.getParent());
+			try (Writer writer = Files.newBufferedWriter(this.path, StandardCharsets.UTF_8)) {
 				properties.store(writer, "Steady View settings");
 			}
 		} catch (IOException e) {
-			SteadyViewClient.LOGGER.warn("Failed to write {}.", path, e);
+			SteadyViewClient.LOGGER.warn("Failed to write {}.", this.path, e);
 		}
 	}
 

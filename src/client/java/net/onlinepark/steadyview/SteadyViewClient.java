@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.logging.LogUtils;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
@@ -49,6 +50,8 @@ public class SteadyViewClient implements ClientModInitializer {
 		levelViewKey = register("level_view", KEY_B, category);
 
 		ClientTickEvents.END_CLIENT_TICK.register(SteadyViewClient::onEndTick);
+		// マイクラ本体の設定（options.txt）は起動処理の中で読み込まれるため、起動が終わってから反映する
+		ClientLifecycleEvents.CLIENT_STARTED.register(minecraft -> RecommendedSettings.applyOnce(minecraft, config));
 	}
 
 	public static SteadyViewConfig config() {
