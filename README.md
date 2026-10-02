@@ -15,6 +15,11 @@
 
 ほかのModとの併用は確認していません。特に、Controlify等の視点操作を変えるModとは一緒に使わないでください。
 
+### Linuxで使う場合の注意
+
+- 動作確認はWindowsでしか行っていません。Mod自体はJavaだけで書いているため、Linuxでもそのまま動く想定です
+- カーソルをウィンドウの外に出さない機能（`confineCursor`）は、デスクトップ環境（Wayland/X11）によって効かないことや、動きが変わることがあります。カーソルの動きがおかしい場合は、設定ファイルで`confineCursor=false`にしてください（ほかの機能はそのまま使えます）
+
 ## 導入方法
 
 配布されたjar（`steadyview-<バージョン>.jar`）を、Fabric 26.3の環境の`mods`フォルダに入れます。おすすめはModrinth Appを使う方法です。
@@ -27,7 +32,7 @@
 4. インスタンスのフォルダを開き、`mods`フォルダに`steadyview-<バージョン>.jar`を入れる
 5. インスタンスを起動する
 
-谷口さんがModrinth Appのプロファイル（.mrpack）として配布した場合は、そのファイルを読み込むだけで2〜4が済みます。
+Modパック（`steadyview-<バージョン>.mrpack`）を受け取った場合は、Modrinth Appでそのファイルを読み込む（インスタンスの作成画面で「ファイルから読み込む」を選ぶ、またはファイルをModrinth Appにドラッグする）だけで2〜4が済みます。パックには、Fabric 26.3、Fabric API、Steady Viewが入っています。
 
 ### 公式ランチャーを使う場合
 
@@ -107,6 +112,17 @@ export JAVA_HOME="$HOME/.jdks/jdk-25.0.4.1+1"
 
 - `runClientGameTest`は実際にゲームのウィンドウを開き、ワールドの作成・キーとマウスの操作・テスト用の専用サーバ（ポート25565）への接続を自動で行います。スクリーンショットは`build/run/clientGameTest/screenshots/`に保存されます
 - `build.gradle`の`eula = true`で、テスト時にMinecraftのEULAに同意しています
+
+### Modパック（.mrpack）の作成
+
+```sh
+./gradlew build
+python tools/build_mrpack.py   # build/distributions/steadyview-<バージョン>.mrpack ができる
+```
+
+- Python 3.9以上が必要です（標準ライブラリだけを使います）
+- Minecraft・Fabric Loader・Fabric APIのバージョンは`gradle.properties`の値に合わせます
+- Fabric APIはModrinthのダウンロード先とハッシュだけをパックに書きます。Steady View本体はModrinthに公開していないため、jarをパックの`overrides/mods`に同梱します
 
 ### 構成
 
