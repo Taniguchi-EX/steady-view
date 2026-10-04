@@ -12,7 +12,8 @@ import net.minecraft.client.player.LocalPlayer;
  *
  * <ul>
  *   <li>PUSH: カーソルが端の手前の線を越えたら、越えた分だけ回し、カーソルは線の上へ戻す。
- *       ウィンドウ内に閉じ込めたカーソルは端より外へは動かないため、線を端から少し内側に置き、外側へ動かした量を測れるようにしている</li>
+ *       ウィンドウ内に閉じ込めたカーソルは端より外へは動かないため、線を端から少し内側に置き、外側へ動かした量を測れるようにしている。
+ *       回る速さは設定のedgePushSpeed（標準の何%か）</li>
  *   <li>SCROLL: カーソルが端にある間、設定の速さで回り続ける</li>
  * </ul>
  */
@@ -21,6 +22,8 @@ public final class EdgeFollower {
 	private static final double PUSH_LINE = 16.0;
 	/** SCROLL: 端とみなす範囲（画面の端からの距離。ウィンドウの座標） */
 	private static final double EDGE = 2.0;
+	/** PUSH: 速さが標準（100%）のとき、1ドット押し込むごとに回る角度（度）。マイクラの既定のマウス感度で、マウスを1ドット動かしたときと同じ */
+	private static final double PUSH_DEGREES_PER_DOT = 0.15;
 	/** Entity.turnが受け取った値に掛ける係数。角度（度）からEntity.turnに渡す値へ直すのに使う */
 	private static final double TURN_SCALE = 0.15;
 	/** 1フレームの経過時間の上限（秒）。処理が止まっていた後に、大きく回らないようにする */
@@ -70,11 +73,10 @@ public final class EdgeFollower {
 		}
 
 		CursorControl.warp(minecraft, x - dx, y - dy);
-		// 感度と上下・左右の反転は、マイクラ本体のマウスの設定に従う（MouseHandler.turnPlayerと同じ計算）
-		double ss = minecraft.options.sensitivity().get() * 0.6 + 0.2;
-		double sens = ss * ss * ss * 8.0;
-		double xo = dx * sens;
-		double yo = dy * sens;
+		// 速さは設定（標準の何%か）に従い、上下・左右の反転はマイクラ本体のマウスの設定に従う
+		double degreesPerDot = PUSH_DEGREES_PER_DOT * SteadyViewClient.config().edgePushSpeed / 100.0;
+		double xo = dx * degreesPerDot / TURN_SCALE;
+		double yo = dy * degreesPerDot / TURN_SCALE;
 		player.turn(minecraft.options.invertMouseX().get() ? -xo : xo, minecraft.options.invertMouseY().get() ? -yo : yo);
 		return true;
 	}

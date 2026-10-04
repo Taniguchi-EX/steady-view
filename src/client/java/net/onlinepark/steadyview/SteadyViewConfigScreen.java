@@ -15,7 +15,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Steady Viewの設定画面。マイクラ本体の設定画面（マウス設定等）と同じ部品・見た目で作る。
  *
- * <p>項目は、1回で回る角度・画面の端での回り方・回る速さ・自分の体の不透明度。
+ * <p>項目は、1回で回る角度・画面の端での回り方・回る速さ（押し込んだ分だけ・一定の速さで）・自分の体の不透明度。
  * Mod Menuの「Mod」一覧の設定ボタン、またはキー（既定F7）で開く。変更は画面を閉じたときに設定ファイルへ保存する。
  */
 public class SteadyViewConfigScreen extends OptionsSubScreen {
@@ -25,6 +25,7 @@ public class SteadyViewConfigScreen extends OptionsSubScreen {
 	private final OptionInstance<Integer> stepAngle;
 	private final OptionInstance<EdgeChoice> edgeTurn;
 	private final OptionInstance<Integer> edgeScrollSpeed;
+	private final OptionInstance<Integer> edgePushSpeed;
 	private final OptionInstance<Integer> playerOpacity;
 
 	public SteadyViewConfigScreen(final Screen lastScreen) {
@@ -48,7 +49,7 @@ public class SteadyViewConfigScreen extends OptionsSubScreen {
 			EdgeChoice.of(this.config),
 			value -> {
 				value.applyTo(this.config);
-				this.updateEdgeScrollSpeedActive();
+				this.updateSpeedActive();
 			}
 		);
 		// 10度刻みで、1秒に10〜360度
@@ -59,6 +60,15 @@ public class SteadyViewConfigScreen extends OptionsSubScreen {
 			new OptionInstance.IntRange(1, 36).xmap(index -> index * 10, value -> Math.max(1, Math.min(36, Math.round(value / 10.0F))), true),
 			(int)Math.round(this.config.edgeScrollSpeed),
 			value -> this.config.edgeScrollSpeed = value
+		);
+		// 10%刻みで、標準の10〜300%
+		this.edgePushSpeed = new OptionInstance<>(
+			"steadyview.config.edgePushSpeed",
+			OptionInstance.cachedConstantTooltip(Component.translatable("steadyview.config.edgePushSpeed.tooltip")),
+			(caption, value) -> Options.genericValueLabel(caption, Component.translatable("steadyview.config.percent", value)),
+			new OptionInstance.IntRange(1, 30).xmap(index -> index * 10, value -> Math.max(1, Math.min(30, Math.round(value / 10.0F))), true),
+			this.config.edgePushSpeed,
+			value -> this.config.edgePushSpeed = value
 		);
 		// 5%刻み
 		this.playerOpacity = new OptionInstance<>(
@@ -86,6 +96,11 @@ public class SteadyViewConfigScreen extends OptionsSubScreen {
 		return this.list == null ? null : this.list.findOption(this.edgeScrollSpeed);
 	}
 
+	/** 押し込んだ分だけ回るときの速さのスライダー（ゲーム内テスト用） */
+	public @Nullable AbstractWidget edgePushSpeedWidget() {
+		return this.list == null ? null : this.list.findOption(this.edgePushSpeed);
+	}
+
 	/** 自分のプレイヤーの不透明度のスライダー（ゲーム内テスト用） */
 	public @Nullable AbstractWidget playerOpacityWidget() {
 		return this.list == null ? null : this.list.findOption(this.playerOpacity);
@@ -95,6 +110,7 @@ public class SteadyViewConfigScreen extends OptionsSubScreen {
 	protected void addOptions() {
 		this.list.addBig(this.stepAngle);
 		this.list.addBig(this.edgeTurn);
+		this.list.addBig(this.edgePushSpeed);
 		this.list.addBig(this.edgeScrollSpeed);
 		this.list.addBig(this.playerOpacity);
 	}
@@ -102,14 +118,20 @@ public class SteadyViewConfigScreen extends OptionsSubScreen {
 	@Override
 	protected void init() {
 		super.init();
-		this.updateEdgeScrollSpeedActive();
+		this.updateSpeedActive();
 	}
 
-	/** 回る速さは「一定の速さで回る」ときだけ使うため、それ以外では押せないようにする */
-	private void updateEdgeScrollSpeedActive() {
-		AbstractWidget speed = this.edgeScrollSpeedWidget();
-		if (speed != null) {
-			speed.active = EdgeChoice.of(this.config) == EdgeChoice.SCROLL;
+	/** 速さのスライダーは、それぞれの回り方のときだけ使うため、それ以外では押せないようにする */
+	private void updateSpeedActive() {
+		EdgeChoice choice = EdgeChoice.of(this.config);
+		AbstractWidget pushSpeed = this.edgePushSpeedWidget();
+		if (pushSpeed != null) {
+			pushSpeed.active = choice == EdgeChoice.PUSH;
+		}
+
+		AbstractWidget scrollSpeed = this.edgeScrollSpeedWidget();
+		if (scrollSpeed != null) {
+			scrollSpeed.active = choice == EdgeChoice.SCROLL;
 		}
 	}
 

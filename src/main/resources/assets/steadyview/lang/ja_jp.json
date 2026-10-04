@@ -23,9 +23,11 @@
 	"steadyview.config.edgeTurn.scroll": "一定の速さで",
 	"steadyview.config.edgeTurn.off.tooltip": "カーソルを画面の端に動かしても、視点は回りません。視点はキーだけで変えます。",
 	"steadyview.config.edgeTurn.step.tooltip": "カーソルが画面の端に来たら、その方向に「1回で回る角度」だけ視点を切り替えます。カーソルは、狙っていた物を指したまま内側へ移ります。",
-	"steadyview.config.edgeTurn.push.tooltip": "カーソルを画面の端からさらに外側へ動かした分だけ、視点がなめらかに回ります。マウスを止めると止まります。速さはマイクラのマウス感度に従います。",
-	"steadyview.config.edgeTurn.scroll.tooltip": "カーソルが画面の端にある間、視点が一定の速さで回り続けます。速さは「回る速さ」で変えられます。",
-	"steadyview.config.edgeScrollSpeed": "回る速さ",
+	"steadyview.config.edgeTurn.push.tooltip": "カーソルを画面の端からさらに外側へ動かした分だけ、視点がなめらかに回ります。マウスを止めると止まります。速さは「速さ（押し込んだ分だけ）」で変えられます。",
+	"steadyview.config.edgeTurn.scroll.tooltip": "カーソルが画面の端にある間、視点が一定の速さで回り続けます。速さは「速さ（一定の速さで）」で変えられます。",
+	"steadyview.config.edgeScrollSpeed": "速さ（一定の速さで）",
 	"steadyview.config.edgeScrollSpeed.tooltip": "「画面の端での回り方」が「一定の速さで」のとき、1秒間に視点が回る角度です。",
-	"steadyview.config.degreesPerSecond": "毎秒%s度"
+	"steadyview.config.degreesPerSecond": "毎秒%s度",
+	"steadyview.config.edgePushSpeed": "速さ（押し込んだ分だけ）",
+	"steadyview.config.edgePushSpeed.tooltip": "「画面の端での回り方」が「押し込んだ分だけ」のとき、カーソルを押し込んだ量に対して視点が回る速さです。100%で、マイクラの既定のマウス感度で視点を動かしたときと同じ速さ（1ドットで0.15度）になります。"
 }

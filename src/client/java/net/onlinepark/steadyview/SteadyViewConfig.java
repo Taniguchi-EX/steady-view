@@ -32,6 +32,8 @@ public final class SteadyViewConfig {
 	public EdgeTurnMode edgeTurnMode = EdgeTurnMode.STEP;
 	/** edgeTurnModeがSCROLLのとき、1秒間に回る角度（度） */
 	public double edgeScrollSpeed = 90.0;
+	/** edgeTurnModeがPUSHのとき、押し込んだ量に対する回る速さ（標準の何%か。10〜300）。標準は1ドットで0.15度 */
+	public int edgePushSpeed = 100;
 	/** 乗り物（ボート・トロッコ・馬等）に乗っている間、マイクラ本体による自動的な視点の変更を打ち消すか */
 	public boolean keepViewWhileRiding = true;
 	/** 弓・雪玉等の飛ばすアイテムを、カーソルの方向へ飛ばすか */
@@ -56,6 +58,7 @@ public final class SteadyViewConfig {
 				config.turnAtScreenEdge = getBoolean(properties, "turnAtScreenEdge", config.turnAtScreenEdge);
 				config.edgeTurnMode = getMode(properties, "edgeTurnMode", config.edgeTurnMode);
 				config.edgeScrollSpeed = getPositiveDouble(properties, "edgeScrollSpeed", config.edgeScrollSpeed);
+				config.edgePushSpeed = getIntInRange(properties, "edgePushSpeed", config.edgePushSpeed, 10, 300);
 				config.keepViewWhileRiding = getBoolean(properties, "keepViewWhileRiding", config.keepViewWhileRiding);
 				config.aimItemsAtCursor = getBoolean(properties, "aimItemsAtCursor", config.aimItemsAtCursor);
 				config.recommendedSettingsApplied = getBoolean(properties, "recommendedSettingsApplied", config.recommendedSettingsApplied);
@@ -84,6 +87,7 @@ public final class SteadyViewConfig {
 		properties.setProperty("turnAtScreenEdge", Boolean.toString(this.turnAtScreenEdge));
 		properties.setProperty("edgeTurnMode", this.edgeTurnMode.name().toLowerCase(Locale.ROOT));
 		properties.setProperty("edgeScrollSpeed", Double.toString(this.edgeScrollSpeed));
+		properties.setProperty("edgePushSpeed", Integer.toString(this.edgePushSpeed));
 		properties.setProperty("keepViewWhileRiding", Boolean.toString(this.keepViewWhileRiding));
 		properties.setProperty("aimItemsAtCursor", Boolean.toString(this.aimItemsAtCursor));
 		properties.setProperty("recommendedSettingsApplied", Boolean.toString(this.recommendedSettingsApplied));
@@ -121,6 +125,11 @@ public final class SteadyViewConfig {
 
 	/** 0〜100の範囲外の値は、範囲内に収める */
 	private static int getPercent(final Properties properties, final String key, final int defaultValue) {
+		return getIntInRange(properties, key, defaultValue, 0, 100);
+	}
+
+	/** min〜maxの範囲外の値は、範囲内に収める */
+	private static int getIntInRange(final Properties properties, final String key, final int defaultValue, final int min, final int max) {
 		String value = properties.getProperty(key);
 		if (value == null) {
 			return defaultValue;
@@ -128,9 +137,9 @@ public final class SteadyViewConfig {
 
 		try {
 			int parsed = Integer.parseInt(value.trim());
-			int clamped = Math.max(0, Math.min(100, parsed));
+			int clamped = Math.max(min, Math.min(max, parsed));
 			if (clamped != parsed) {
-				SteadyViewClient.LOGGER.warn("{} must be between 0 and 100: {}. Using {}.", key, value, clamped);
+				SteadyViewClient.LOGGER.warn("{} must be between {} and {}: {}. Using {}.", key, min, max, value, clamped);
 			}
 
 			return clamped;
