@@ -24,6 +24,8 @@ public final class SteadyViewConfig {
 	public boolean hideCrosshair = true;
 	/** キー・画面の端（STEP）で1回に回る角度（度）。AngleMath.ALLOWED_STEPSのどれか */
 	public int stepAngle = AngleMath.DEFAULT_STEP;
+	/** 三人称視点で見える自分のプレイヤーの体の不透明度（0〜100%）。100なら通常どおり */
+	public int playerOpacity = 100;
 	/** カーソルを画面の端まで動かしたとき、その方向に視点を変えるか */
 	public boolean turnAtScreenEdge = true;
 	/** 画面の端での視点の変え方 */
@@ -50,6 +52,7 @@ public final class SteadyViewConfig {
 				config.confineCursor = getBoolean(properties, "confineCursor", config.confineCursor);
 				config.hideCrosshair = getBoolean(properties, "hideCrosshair", config.hideCrosshair);
 				config.stepAngle = getStepAngle(properties, "stepAngle", config.stepAngle);
+				config.playerOpacity = getPercent(properties, "playerOpacity", config.playerOpacity);
 				config.turnAtScreenEdge = getBoolean(properties, "turnAtScreenEdge", config.turnAtScreenEdge);
 				config.edgeTurnMode = getMode(properties, "edgeTurnMode", config.edgeTurnMode);
 				config.edgeScrollSpeed = getPositiveDouble(properties, "edgeScrollSpeed", config.edgeScrollSpeed);
@@ -77,6 +80,7 @@ public final class SteadyViewConfig {
 		properties.setProperty("confineCursor", Boolean.toString(this.confineCursor));
 		properties.setProperty("hideCrosshair", Boolean.toString(this.hideCrosshair));
 		properties.setProperty("stepAngle", Integer.toString(this.stepAngle));
+		properties.setProperty("playerOpacity", Integer.toString(this.playerOpacity));
 		properties.setProperty("turnAtScreenEdge", Boolean.toString(this.turnAtScreenEdge));
 		properties.setProperty("edgeTurnMode", this.edgeTurnMode.name().toLowerCase(Locale.ROOT));
 		properties.setProperty("edgeScrollSpeed", Double.toString(this.edgeScrollSpeed));
@@ -111,6 +115,27 @@ public final class SteadyViewConfig {
 			return EdgeTurnMode.valueOf(value.trim().toUpperCase(Locale.ROOT));
 		} catch (IllegalArgumentException e) {
 			SteadyViewClient.LOGGER.warn("Unknown {}: {}. Using {}.", key, value, defaultValue);
+			return defaultValue;
+		}
+	}
+
+	/** 0〜100の範囲外の値は、範囲内に収める */
+	private static int getPercent(final Properties properties, final String key, final int defaultValue) {
+		String value = properties.getProperty(key);
+		if (value == null) {
+			return defaultValue;
+		}
+
+		try {
+			int parsed = Integer.parseInt(value.trim());
+			int clamped = Math.max(0, Math.min(100, parsed));
+			if (clamped != parsed) {
+				SteadyViewClient.LOGGER.warn("{} must be between 0 and 100: {}. Using {}.", key, value, clamped);
+			}
+
+			return clamped;
+		} catch (NumberFormatException e) {
+			SteadyViewClient.LOGGER.warn("Invalid {}: {}. Using {}.", key, value, defaultValue);
 			return defaultValue;
 		}
 	}

@@ -3,7 +3,11 @@
 	"package": "net.onlinepark.steadyview.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
+		"AvatarRenderStateMixin",
+		"AvatarRendererMixin",
 		"HudMixin",
+		"InventoryScreenMixin",
+		"LivingEntityRendererMixin",
 		"LocalPlayerAccessor",
 		"LocalPlayerMixin",
 		"MouseHandlerAccessor",

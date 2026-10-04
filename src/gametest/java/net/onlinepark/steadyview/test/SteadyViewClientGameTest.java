@@ -3,10 +3,13 @@ package net.onlinepark.steadyview.test;
 import com.mojang.blaze3d.platform.Window;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.awt.image.BufferedImage;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import javax.imageio.ImageIO;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection;
@@ -17,7 +20,9 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import com.terraformersmc.modmenu.api.ModMenuApi;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Camera;
+import net.minecraft.client.CameraType;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
@@ -34,6 +39,7 @@ import net.minecraft.world.phys.Vec3;
 import net.onlinepark.steadyview.AngleMath;
 import net.onlinepark.steadyview.CursorPicker;
 import net.onlinepark.steadyview.EdgeTurnMode;
+import net.onlinepark.steadyview.PlayerOpacityHolder;
 import net.onlinepark.steadyview.RecommendedSettings;
 import net.onlinepark.steadyview.SteadyViewClient;
 import net.onlinepark.steadyview.SteadyViewConfigScreen;
@@ -66,6 +72,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 			testEdgeTurn(context, singleplayer.getServer());
 			testEdgeFollow(context, singleplayer.getServer());
 			testStepAngleSetting(context, singleplayer.getServer());
+			testPlayerOpacity(context, singleplayer.getServer());
 			testKeepViewWhileRiding(context, singleplayer.getServer());
 			testCursorPick(context, singleplayer.getServer());
 		}
@@ -496,6 +503,94 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		context.runOnClient(minecraft -> SteadyViewClient.config().stepAngle = 45);
 		context.getInput().setCursorPos(window.getScreenWidth() / 2.0, window.getScreenHeight() / 2.0);
 		setUpStage(context, server);
+	}
+
+	/** 三人称視点で、自分の体が設定の不透明度で半透明に描かれること */
+	private static void testPlayerOpacity(final ClientGameTestContext context, final TestServerContext server) {
+		setUpStage(context, server);
+		Window window = context.computeOnClient(Minecraft::getWindow);
+		context.getInput().setCursorPos(window.getScreenWidth() / 2.0, window.getScreenHeight() / 2.0);
+		context.runOnClient(minecraft -> minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+		context.waitTicks(10);
+		Path opaque = context.takeScreenshot("steadyview-10-opacity-100");
+
+		// 設定画面のスライダーで50%にする
+		pressSteadyViewKey(context, "open_settings");
+		double[] point = context.computeOnClient(minecraft -> {
+			AbstractWidget slider = ((SteadyViewConfigScreen)minecraft.gui.screen()).playerOpacityWidget();
+			double scale = minecraft.getWindow().getGuiScale();
+			double x = slider.getX() + 4 + (slider.getWidth() - 8) * 0.5;
+			double y = slider.getY() + slider.getHeight() / 2.0;
+			return new double[]{x * scale, y * scale};
+		});
+		context.getInput().setCursorPos(point[0], point[1]);
+		context.getInput().pressMouse(1);
+		context.waitTicks(2);
+		int opacity = context.computeOnClient(minecraft -> SteadyViewClient.config().playerOpacity);
+		check(opacity == 50, "スライダーで50%にできない（実際: " + opacity + "）");
+		context.takeScreenshot("steadyview-11-settings-opacity");
+		context.runOnClient(minecraft -> minecraft.gui.screen().onClose());
+		context.getInput().setCursorPos(window.getScreenWidth() / 2.0, window.getScreenHeight() / 2.0);
+		context.waitTicks(5);
+		Path half = context.takeScreenshot("steadyview-12-opacity-50");
+
+		// 0%にすると体が見えなくなる
+		context.runOnClient(minecraft -> SteadyViewClient.config().playerOpacity = 0);
+		context.waitTicks(5);
+		Path hidden = context.takeScreenshot("steadyview-13-opacity-0");
+		int stateOpacity = context.computeOnClient(minecraft -> ((PlayerOpacityHolder)minecraft.getEntityRenderDispatcher()
+			.getRenderer(minecraft.player).createRenderState(minecraft.player, 1.0F)).steadyview$getOpacity());
+		check(stateOpacity == 0, "自分のプレイヤーの描画情報に不透明度が入っていない（実際: " + stateOpacity + "）");
+
+		// 体の中ほどの色を比べる。50%のときは、100%（体の色）と0%（背景の色）のほぼ中間になる
+		int[] opaqueColor = averageColor(opaque, 0.5, 0.62);
+		int[] halfColor = averageColor(half, 0.5, 0.62);
+		int[] hiddenColor = averageColor(hidden, 0.5, 0.62);
+		int difference = 0;
+		int halfError = 0;
+		for (int i = 0; i < 3; i++) {
+			difference += Math.abs(opaqueColor[i] - hiddenColor[i]);
+			halfError += Math.abs(halfColor[i] - (opaqueColor[i] + hiddenColor[i]) / 2);
+		}
+		String colors = "（100%: " + Arrays.toString(opaqueColor) + " / 50%: " + Arrays.toString(halfColor) + " / 0%: " + Arrays.toString(hiddenColor) + "）";
+		check(difference > 60, "不透明度を0%にしても、体の見え方が変わらない" + colors);
+		check(halfError < difference / 4, "50%のとき、体が半透明になっていない" + colors);
+
+		// インベントリ画面に映る自分は、通常どおり（不透明）
+		context.setScreen(() -> new InventoryScreen(context.computeOnClient(minecraft -> minecraft.player)));
+		context.waitTicks(2);
+		context.takeScreenshot("steadyview-14-inventory");
+		context.setScreen(() -> null);
+
+		// 元に戻す
+		context.runOnClient(minecraft -> {
+			SteadyViewClient.config().playerOpacity = 100;
+			minecraft.options.setCameraType(CameraType.FIRST_PERSON);
+		});
+		context.waitTicks(2);
+	}
+
+	/** スクリーンショットの、指定した位置（幅・高さに対する割合）の周り9×9ドットの平均の色（R・G・B） */
+	private static int[] averageColor(final Path screenshot, final double xRatio, final double yRatio) {
+		try {
+			BufferedImage image = ImageIO.read(screenshot.toFile());
+			int centerX = (int)(image.getWidth() * xRatio);
+			int centerY = (int)(image.getHeight() * yRatio);
+			int[] sum = new int[3];
+			int count = 0;
+			for (int y = centerY - 4; y <= centerY + 4; y++) {
+				for (int x = centerX - 4; x <= centerX + 4; x++) {
+					int rgb = image.getRGB(x, y);
+					sum[0] += rgb >> 16 & 0xFF;
+					sum[1] += rgb >> 8 & 0xFF;
+					sum[2] += rgb & 0xFF;
+					count++;
+				}
+			}
+			return new int[]{sum[0] / count, sum[1] / count, sum[2] / count};
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
 	}
 
 	/** 画面の端でなめらかに回る設定（edgeTurnModeがPUSH・SCROLL） */

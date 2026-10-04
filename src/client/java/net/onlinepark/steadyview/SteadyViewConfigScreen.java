@@ -19,6 +19,7 @@ public class SteadyViewConfigScreen extends OptionsSubScreen {
 
 	private final SteadyViewConfig config;
 	private final OptionInstance<Integer> stepAngle;
+	private final OptionInstance<Integer> playerOpacity;
 
 	public SteadyViewConfigScreen(final Screen lastScreen) {
 		super(lastScreen, Minecraft.getInstance().options, TITLE);
@@ -32,6 +33,15 @@ public class SteadyViewConfigScreen extends OptionsSubScreen {
 			this.config.stepAngle,
 			value -> this.config.stepAngle = value
 		);
+		// 5%刻み
+		this.playerOpacity = new OptionInstance<>(
+			"steadyview.config.playerOpacity",
+			OptionInstance.cachedConstantTooltip(Component.translatable("steadyview.config.playerOpacity.tooltip")),
+			(caption, value) -> Options.genericValueLabel(caption, Component.translatable("steadyview.config.percent", value)),
+			new OptionInstance.IntRange(0, 20).xmap(index -> index * 5, value -> Math.round(value / 5.0F), true),
+			this.config.playerOpacity,
+			value -> this.config.playerOpacity = value
+		);
 	}
 
 	/** 1回で回る角度のスライダー（ゲーム内テストで、位置を調べてクリックするため公開する） */
@@ -39,9 +49,15 @@ public class SteadyViewConfigScreen extends OptionsSubScreen {
 		return this.list == null ? null : this.list.findOption(this.stepAngle);
 	}
 
+	/** 自分のプレイヤーの不透明度のスライダー（ゲーム内テスト用） */
+	public @Nullable AbstractWidget playerOpacityWidget() {
+		return this.list == null ? null : this.list.findOption(this.playerOpacity);
+	}
+
 	@Override
 	protected void addOptions() {
 		this.list.addBig(this.stepAngle);
+		this.list.addBig(this.playerOpacity);
 	}
 
 	@Override
