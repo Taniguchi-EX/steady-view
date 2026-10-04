@@ -643,6 +643,46 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		check(difference > 60, "不透明度を0%にしても、体の見え方が変わらない" + colors);
 		check(halfError < difference / 4, "50%のとき、体が半透明になっていない" + colors);
 
+		// 体に装備した防具も、体と同じ不透明度になる（装飾（トリム）・エンチャント付きを含む）。手に持った剣は不透明のまま
+		server.runCommand("item replace entity @a armor.head with minecraft:iron_helmet");
+		server.runCommand("item replace entity @a armor.chest with minecraft:diamond_chestplate[minecraft:trim={material:\"minecraft:gold\",pattern:\"minecraft:sentry\"}]");
+		server.runCommand("item replace entity @a armor.legs with minecraft:golden_leggings[minecraft:enchantments={\"minecraft:protection\":1}]");
+		server.runCommand("item replace entity @a armor.feet with minecraft:leather_boots");
+		server.runCommand("item replace entity @a weapon.mainhand with minecraft:diamond_sword");
+		context.runOnClient(minecraft -> SteadyViewClient.config().playerOpacity = 100);
+		context.waitTicks(10);
+		Path armorOpaque = context.takeScreenshot("steadyview-14a-armor-100");
+		context.runOnClient(minecraft -> SteadyViewClient.config().playerOpacity = 50);
+		context.waitTicks(5);
+		Path armorHalf = context.takeScreenshot("steadyview-14b-armor-50");
+		context.runOnClient(minecraft -> SteadyViewClient.config().playerOpacity = 0);
+		context.waitTicks(5);
+		Path armorHidden = context.takeScreenshot("steadyview-14c-armor-0");
+		// 防具の胴（ダイヤのチェストプレート）と、すね（金のレギンス）の色を比べる
+		for (double y : new double[]{0.55, 0.70}) {
+			int[] armorOpaqueColor = averageColor(armorOpaque, 0.5, y);
+			int[] armorHalfColor = averageColor(armorHalf, 0.5, y);
+			int[] armorHiddenColor = averageColor(armorHidden, 0.5, y);
+			// 防具の下の体も半透明になっているため、50%の色はちょうど中間にはならない。100%・0%のどちらともはっきり違うことを確かめる
+			int armorDifference = 0;
+			int fromOpaque = 0;
+			int fromHidden = 0;
+			for (int i = 0; i < 3; i++) {
+				armorDifference += Math.abs(armorOpaqueColor[i] - armorHiddenColor[i]);
+				fromOpaque += Math.abs(armorHalfColor[i] - armorOpaqueColor[i]);
+				fromHidden += Math.abs(armorHalfColor[i] - armorHiddenColor[i]);
+			}
+			String armorColors = "（高さ" + y + "、100%: " + Arrays.toString(armorOpaqueColor) + " / 50%: " + Arrays.toString(armorHalfColor)
+				+ " / 0%: " + Arrays.toString(armorHiddenColor) + "）";
+			check(armorDifference > 60, "不透明度を0%にしても、防具の見え方が変わらない" + armorColors);
+			check(fromOpaque > armorDifference / 4 && fromHidden > armorDifference / 4, "50%のとき、防具が半透明になっていない" + armorColors);
+		}
+		server.runCommand("item replace entity @a armor.head with minecraft:air");
+		server.runCommand("item replace entity @a armor.chest with minecraft:air");
+		server.runCommand("item replace entity @a armor.legs with minecraft:air");
+		server.runCommand("item replace entity @a armor.feet with minecraft:air");
+		server.runCommand("item replace entity @a weapon.mainhand with minecraft:air");
+
 		// インベントリ画面に映る自分は、通常どおり（不透明）
 		context.setScreen(() -> new InventoryScreen(context.computeOnClient(minecraft -> minecraft.player)));
 		context.waitTicks(2);

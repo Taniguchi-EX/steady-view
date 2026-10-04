@@ -14,7 +14,7 @@
 	"steadyview.config.stepAngle.tooltip": "キーと画面の端で、1回に視点が回る角度です。視点はこの角度の単位でそろいます。どの角度でも、東西南北・水平・真上・真下をちょうど向けるよう、90の約数から選びます。",
 	"steadyview.config.degrees": "%s度",
 	"steadyview.config.playerOpacity": "自分の体の不透明度",
-	"steadyview.config.playerOpacity.tooltip": "三人称視点（F5）で見える自分の体の不透明度です。下げると半透明になり、体の向こう側が見えるようになります。防具・手に持ったアイテム等は不透明のままです。他のプレイヤーからの見え方は変わりません。",
+	"steadyview.config.playerOpacity.tooltip": "三人称視点（F5）で見える自分の体と、体に装備した防具・エリトラ・マントの不透明度です。下げると半透明になり、向こう側が見えるようになります。手に持ったアイテムは不透明のままです。他のプレイヤーからの見え方は変わりません。",
 	"steadyview.config.percent": "%s%%",
 	"steadyview.config.edgeTurn": "画面の端での回り方",
 	"steadyview.config.edgeTurn.off": "回らない",

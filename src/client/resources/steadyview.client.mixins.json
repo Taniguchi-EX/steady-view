@@ -5,6 +5,8 @@
 	"client": [
 		"AvatarRenderStateMixin",
 		"AvatarRendererMixin",
+		"CapeLayerMixin",
+		"EquipmentLayerRendererMixin",
 		"HudMixin",
 		"InventoryScreenMixin",
 		"LivingEntityRendererMixin",

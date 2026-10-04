@@ -5,8 +5,7 @@ import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.resources.Identifier;
-import net.minecraft.util.ARGB;
-import net.onlinepark.steadyview.PlayerOpacityHolder;
+import net.onlinepark.steadyview.PlayerOpacity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 自分のプレイヤーの体を、設定の不透明度で半透明に描く。
  *
  * <p>マイクラ本体が「透明化したプレイヤーを、見える人には半透明で描く」ときと同じ描き方（entityTranslucentCull と色のアルファ）を使う。
- * 防具・手に持ったアイテム・マント等（レイヤー）は対象外で、通常どおり描く。
+ * 体に装備した防具・エリトラ・マントは、EquipmentLayerRendererMixin・CapeLayerMixinで同じ不透明度にする。手に持ったアイテムは不透明のまま。
  */
 @Mixin(LivingEntityRenderer.class)
 public abstract class LivingEntityRendererMixin {
@@ -30,7 +29,7 @@ public abstract class LivingEntityRendererMixin {
 		final LivingEntityRenderState state, final boolean isBodyVisible, final boolean forceTransparent, final boolean appearGlowing,
 		final CallbackInfoReturnable<RenderType> cir
 	) {
-		if (isBodyVisible && !forceTransparent && opacity(state) < 100) {
+		if (isBodyVisible && !forceTransparent && PlayerOpacity.isTranslucent(state)) {
 			cir.setReturnValue(RenderTypes.entityTranslucentCull(this.getTextureLocation(state)));
 		}
 	}
@@ -38,13 +37,9 @@ public abstract class LivingEntityRendererMixin {
 	/** 色のアルファに不透明度を掛ける */
 	@Inject(method = "getModelTint", at = @At("RETURN"), cancellable = true)
 	private void steadyview$applyOpacity(final LivingEntityRenderState state, final CallbackInfoReturnable<Integer> cir) {
-		int opacity = opacity(state);
+		int opacity = PlayerOpacity.of(state);
 		if (opacity < 100) {
-			cir.setReturnValue(ARGB.multiply(cir.getReturnValue(), ARGB.color(Math.round(opacity * 255 / 100.0F), 255, 255, 255)));
+			cir.setReturnValue(PlayerOpacity.applyTo(cir.getReturnValue(), opacity));
 		}
-	}
-
-	private static int opacity(final LivingEntityRenderState state) {
-		return state instanceof PlayerOpacityHolder holder ? holder.steadyview$getOpacity() : 100;
 	}
 }

@@ -14,7 +14,7 @@
 	"steadyview.config.stepAngle.tooltip": "How far the view turns per key press or screen-edge turn. The view snaps to multiples of this angle. Only divisors of 90 can be chosen, so you can always face the four cardinal directions, level, straight up and straight down.",
 	"steadyview.config.degrees": "%s°",
 	"steadyview.config.playerOpacity": "Own Body Opacity",
-	"steadyview.config.playerOpacity.tooltip": "Opacity of your own body in third-person view (F5). Lower it to see through your body. Armor and held items stay opaque. Other players see you as usual.",
+	"steadyview.config.playerOpacity.tooltip": "Opacity of your own body and the armor, elytra and cape you wear in third-person view (F5). Lower it to see through them. Held items stay opaque. Other players see you as usual.",
 	"steadyview.config.percent": "%s%%",
 	"steadyview.config.edgeTurn": "Screen Edge Turning",
 	"steadyview.config.edgeTurn.off": "Off",
