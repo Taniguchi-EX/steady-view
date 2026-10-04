@@ -22,6 +22,8 @@ public final class SteadyViewConfig {
 	public boolean confineCursor = true;
 	/** 有効なとき、画面中央の照準を隠すか */
 	public boolean hideCrosshair = true;
+	/** キー・画面の端（STEP）で1回に回る角度（度）。AngleMath.ALLOWED_STEPSのどれか */
+	public int stepAngle = AngleMath.DEFAULT_STEP;
 	/** カーソルを画面の端まで動かしたとき、その方向に視点を変えるか */
 	public boolean turnAtScreenEdge = true;
 	/** 画面の端での視点の変え方 */
@@ -47,6 +49,7 @@ public final class SteadyViewConfig {
 				config.enabledOnStartup = getBoolean(properties, "enabledOnStartup", config.enabledOnStartup);
 				config.confineCursor = getBoolean(properties, "confineCursor", config.confineCursor);
 				config.hideCrosshair = getBoolean(properties, "hideCrosshair", config.hideCrosshair);
+				config.stepAngle = getStepAngle(properties, "stepAngle", config.stepAngle);
 				config.turnAtScreenEdge = getBoolean(properties, "turnAtScreenEdge", config.turnAtScreenEdge);
 				config.edgeTurnMode = getMode(properties, "edgeTurnMode", config.edgeTurnMode);
 				config.edgeScrollSpeed = getPositiveDouble(properties, "edgeScrollSpeed", config.edgeScrollSpeed);
@@ -73,6 +76,7 @@ public final class SteadyViewConfig {
 		properties.setProperty("enabledOnStartup", Boolean.toString(this.enabledOnStartup));
 		properties.setProperty("confineCursor", Boolean.toString(this.confineCursor));
 		properties.setProperty("hideCrosshair", Boolean.toString(this.hideCrosshair));
+		properties.setProperty("stepAngle", Integer.toString(this.stepAngle));
 		properties.setProperty("turnAtScreenEdge", Boolean.toString(this.turnAtScreenEdge));
 		properties.setProperty("edgeTurnMode", this.edgeTurnMode.name().toLowerCase(Locale.ROOT));
 		properties.setProperty("edgeScrollSpeed", Double.toString(this.edgeScrollSpeed));
@@ -90,8 +94,8 @@ public final class SteadyViewConfig {
 	}
 
 	/**
-	 * 視点の向きを45度単位に限らないか。画面の端でなめらかに回る方式（PUSH・SCROLL）のときはtrue。
-	 * このときは、キーで回るときも今の向きから45度回り、45度単位にはそろえない。
+	 * 視点の向きを、1回で回る角度（stepAngle）の単位に限らないか。画面の端でなめらかに回る方式（PUSH・SCROLL）のときはtrue。
+	 * このときは、キーで回るときも今の向きからstepAngle度回り、その単位にはそろえない。
 	 */
 	public boolean freeAngle() {
 		return this.turnAtScreenEdge && this.edgeTurnMode != EdgeTurnMode.STEP;
@@ -107,6 +111,27 @@ public final class SteadyViewConfig {
 			return EdgeTurnMode.valueOf(value.trim().toUpperCase(Locale.ROOT));
 		} catch (IllegalArgumentException e) {
 			SteadyViewClient.LOGGER.warn("Unknown {}: {}. Using {}.", key, value, defaultValue);
+			return defaultValue;
+		}
+	}
+
+	/** 選べない値（AngleMath.ALLOWED_STEPS以外）が書かれていたら、最も近い選べる値にする */
+	private static int getStepAngle(final Properties properties, final String key, final int defaultValue) {
+		String value = properties.getProperty(key);
+		if (value == null) {
+			return defaultValue;
+		}
+
+		try {
+			int parsed = Integer.parseInt(value.trim());
+			int allowed = AngleMath.nearestAllowedStep(parsed);
+			if (allowed != parsed) {
+				SteadyViewClient.LOGGER.warn("{} must be one of 5, 6, 9, 10, 15, 18, 30, 45, 90: {}. Using {}.", key, value, allowed);
+			}
+
+			return allowed;
+		} catch (NumberFormatException e) {
+			SteadyViewClient.LOGGER.warn("Invalid {}: {}. Using {}.", key, value, defaultValue);
 			return defaultValue;
 		}
 	}

@@ -1,6 +1,9 @@
 package net.onlinepark.steadyview.test;
 
 import com.mojang.blaze3d.platform.Window;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
@@ -11,7 +14,10 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerCon
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import com.terraformersmc.modmenu.api.ModMenuApi;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Camera;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
@@ -25,10 +31,12 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.onlinepark.steadyview.AngleMath;
 import net.onlinepark.steadyview.CursorPicker;
 import net.onlinepark.steadyview.EdgeTurnMode;
 import net.onlinepark.steadyview.RecommendedSettings;
 import net.onlinepark.steadyview.SteadyViewClient;
+import net.onlinepark.steadyview.SteadyViewConfigScreen;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
@@ -57,6 +65,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 			testRotation(context, singleplayer.getServer());
 			testEdgeTurn(context, singleplayer.getServer());
 			testEdgeFollow(context, singleplayer.getServer());
+			testStepAngleSetting(context, singleplayer.getServer());
 			testKeepViewWhileRiding(context, singleplayer.getServer());
 			testCursorPick(context, singleplayer.getServer());
 		}
@@ -413,6 +422,82 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 	}
 
 	/** ボートに乗ったとき・ボートが曲がったときに、視点が自動で変わらないこと。設定でオフにすると通常どおり変わること */
+	/** 設定画面のスライダーで「1回で回る角度」を変えると、キー・画面の端・そろえ方に反映され、設定ファイルに保存されること */
+	private static void testStepAngleSetting(final ClientGameTestContext context, final TestServerContext server) {
+		setUpStage(context, server);
+
+		// Mod Menuの「Mod」一覧から、Steady Viewの設定画面を開ける（Mod Menuに登録した入口から画面が作られる）
+		check(FabricLoader.getInstance().isModLoaded("modmenu"), "テスト環境にMod Menuが入っていない");
+		boolean openedFromModMenu = context.computeOnClient(minecraft -> FabricLoader.getInstance()
+			.getEntrypointContainers("modmenu", ModMenuApi.class).stream()
+			.filter(container -> container.getProvider().getMetadata().getId().equals("steadyview"))
+			.anyMatch(container -> container.getEntrypoint().getModConfigScreenFactory().create(null) instanceof SteadyViewConfigScreen));
+		check(openedFromModMenu, "Mod Menuから設定画面を開けない");
+
+		// キー（F7）で設定画面を開く
+		pressSteadyViewKey(context, "open_settings");
+		check(context.computeOnClient(minecraft -> minecraft.gui.screen() instanceof SteadyViewConfigScreen), "キーで設定画面が開かない");
+		check(context.computeOnClient(minecraft -> SteadyViewClient.config().stepAngle == 45), "角度の既定値が45度ではない");
+
+		// スライダーの30度の位置をクリックする（スライダーは5・6・9・10・15・18・30・45・90度の9段階）
+		double[] point = context.computeOnClient(minecraft -> {
+			AbstractWidget slider = ((SteadyViewConfigScreen)minecraft.gui.screen()).stepAngleWidget();
+			double scale = minecraft.getWindow().getGuiScale();
+			double fraction = (double)AngleMath.stepIndex(30) / (AngleMath.ALLOWED_STEPS.length - 1);
+			// スライダーのつまみの幅（8）の半分ずつ、両端は値の範囲に入らない
+			double x = slider.getX() + 4 + (slider.getWidth() - 8) * fraction;
+			double y = slider.getY() + slider.getHeight() / 2.0;
+			return new double[]{x * scale, y * scale};
+		});
+		context.getInput().setCursorPos(point[0], point[1]);
+		context.getInput().pressMouse(1);
+		context.waitTicks(2);
+		int angle = context.computeOnClient(minecraft -> SteadyViewClient.config().stepAngle);
+		check(angle == 30, "スライダーで30度にできない（実際: " + angle + "）");
+		context.takeScreenshot("steadyview-09-settings");
+
+		// 閉じると設定ファイルに保存される
+		context.runOnClient(minecraft -> minecraft.gui.screen().onClose());
+		context.waitTicks(2);
+		check(context.computeOnClient(minecraft -> minecraft.gui.screen() == null), "設定画面を閉じてもゲームに戻らない");
+		String saved = context.computeOnClient(minecraft -> {
+			try {
+				return Files.readString(FabricLoader.getInstance().getConfigDir().resolve("steadyview.properties"));
+			} catch (IOException e) {
+				throw new UncheckedIOException(e);
+			}
+		});
+		check(saved.contains("stepAngle=30"), "設定ファイルに角度が保存されていない");
+
+		// キーで30度ずつ回る
+		context.getInput().setCursorPos(context.computeOnClient(m -> m.getWindow().getScreenWidth()) / 2.0, context.computeOnClient(m -> m.getWindow().getScreenHeight()) / 2.0);
+		context.waitTicks(2);
+		pressSteadyViewKey(context, "turn_right");
+		assertRotation(context, 30.0F, 0.0F, "30度に設定しても右に30度回らない");
+		pressSteadyViewKey(context, "look_down");
+		pressSteadyViewKey(context, "look_down");
+		pressSteadyViewKey(context, "look_down");
+		pressSteadyViewKey(context, "look_down");
+		assertRotation(context, 30.0F, 90.0F, "30度ずつ下を向いて真下で止まらない");
+		pressSteadyViewKey(context, "level_view");
+
+		// 中途半端な向きは30度単位にそろう
+		server.runCommand("tp @a 0.5 -60 0.5 40 20");
+		context.waitTicks(5);
+		assertRotation(context, 30.0F, 30.0F, "30度単位にそろわない");
+		pressSteadyViewKey(context, "level_view");
+
+		// 画面の端でも30度ずつ回る
+		Window window = context.computeOnClient(Minecraft::getWindow);
+		pushCursorToEdge(context, 0.0, window.getScreenHeight() * 0.5);
+		assertRotation(context, 0.0F, 0.0F, "30度に設定しても、左端で左に30度回らない");
+
+		// 45度に戻す
+		context.runOnClient(minecraft -> SteadyViewClient.config().stepAngle = 45);
+		context.getInput().setCursorPos(window.getScreenWidth() / 2.0, window.getScreenHeight() / 2.0);
+		setUpStage(context, server);
+	}
+
 	/** 画面の端でなめらかに回る設定（edgeTurnModeがPUSH・SCROLL） */
 	private static void testEdgeFollow(final ClientGameTestContext context, final TestServerContext server) {
 		Window window = context.computeOnClient(Minecraft::getWindow);

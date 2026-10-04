@@ -7,7 +7,7 @@
 できるもの: build/distributions/steadyview-<バージョン>.mrpack
 
 - バージョンは gradle.properties の値（Minecraft、Fabric Loader、Fabric API、Mod本体）に合わせる
-- Fabric APIはModrinthに公開されているため、ダウンロード先とハッシュだけをパックに書く（再配布しない）
+- Fabric API・Mod Menu（とその必須の依存Mod）はModrinthに公開されているため、ダウンロード先とハッシュだけをパックに書く（再配布しない）
 - Steady View本体はModrinthに公開していないため、jarをパックの overrides/mods に同梱する
 """
 
@@ -40,18 +40,29 @@ def fetch_json(url: str):
         return json.load(response)
 
 
-def modrinth_file(project: str, version_number: str, minecraft_version: str) -> dict:
-    """Modrinthから、指定したバージョンの主ファイルの情報を取得する。"""
+def modrinth_version(project: str, minecraft_version: str, version_number: str | None = None) -> dict:
+    """Modrinthから、指定したバージョン（省略時は26.3向けの最新）の情報を取得する。"""
     query = urllib.parse.urlencode({
         "game_versions": json.dumps([minecraft_version]),
         "loaders": json.dumps(["fabric"]),
     })
     versions = fetch_json(f"{MODRINTH_API}/project/{project}/version?{query}")
     for version in versions:
-        if version["version_number"] == version_number:
-            primary = next((f for f in version["files"] if f["primary"]), version["files"][0])
-            return primary
-    raise SystemExit(f"Modrinthに {project} {version_number}（{minecraft_version}向け）が見つからない")
+        if version_number is None or version["version_number"] == version_number:
+            return version
+    raise SystemExit(f"Modrinthに {project} {version_number or '（最新）'}（{minecraft_version}向け）が見つからない")
+
+
+def pack_file(version: dict) -> dict:
+    """パックの files に書く1件（ダウンロード先とハッシュ）。"""
+    primary = next((f for f in version["files"] if f["primary"]), version["files"][0])
+    return {
+        "path": f"mods/{primary['filename']}",
+        "hashes": {"sha1": primary["hashes"]["sha1"], "sha512": primary["hashes"]["sha512"]},
+        "env": {"client": "required", "server": "unsupported"},
+        "downloads": [primary["url"]],
+        "fileSize": primary["size"],
+    }
 
 
 def main() -> None:
@@ -59,29 +70,36 @@ def main() -> None:
     mod_version = properties["version"]
     minecraft_version = properties["minecraft_version"]
     loader_version = properties["loader_version"]
-    fabric_api_version = properties["fabric_api_version"]
 
     mod_jar = ROOT / "build" / "libs" / f"steadyview-{mod_version}.jar"
     if not mod_jar.exists():
         raise SystemExit(f"{mod_jar} がない。先に ./gradlew build を実行する")
 
-    fabric_api = modrinth_file("fabric-api", fabric_api_version, minecraft_version)
-    client_only = {"client": "required", "server": "unsupported"}
+    # パックに入れるModと、それらが必須とするModを集める（バージョンを指定したものは gradle.properties の値）
+    # Mod Menu は、「Mod」一覧から設定画面を開くために入れる
+    wanted = [("fabric-api", properties["fabric_api_version"]), ("modmenu", properties["modmenu_version"])]
+    versions: dict[str, dict] = {}
+    while wanted:
+        project, version_number = wanted.pop(0)
+        version = modrinth_version(project, minecraft_version, version_number)
+        if version["project_id"] in versions:
+            continue
+        versions[version["project_id"]] = version
+        for dependency in version["dependencies"]:
+            if dependency["dependency_type"] == "required" and dependency["project_id"] not in versions:
+                # 必須の依存Modは、バージョンの指定がなければ26.3向けの最新を使う
+                wanted.append((dependency["project_id"], None))
+
+    for version in versions.values():
+        print(f"  {version['name']}")
+
     index = {
         "formatVersion": 1,
         "game": "minecraft",
         "versionId": mod_version,
         "name": "Steady View",
-        "summary": "Fabric 26.3 + Fabric API + Steady View（酔いやすい人向けの視点操作Mod）",
-        "files": [
-            {
-                "path": f"mods/{fabric_api['filename']}",
-                "hashes": {"sha1": fabric_api["hashes"]["sha1"], "sha512": fabric_api["hashes"]["sha512"]},
-                "env": client_only,
-                "downloads": [fabric_api["url"]],
-                "fileSize": fabric_api["size"],
-            }
-        ],
+        "summary": "Fabric 26.3 + Fabric API + Mod Menu + Steady View（酔いやすい人向けの視点操作Mod）",
+        "files": [pack_file(version) for version in versions.values()],
         "dependencies": {
             "minecraft": minecraft_version,
             "fabric-loader": loader_version,

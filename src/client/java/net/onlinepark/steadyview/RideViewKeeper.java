@@ -11,9 +11,9 @@ import org.jspecify.annotations.Nullable;
  * これらはいずれもtickの処理の中で行われるため、tickの終わり（描画の前）に、前のtickの終わりの向きへ戻す。
  * Mod自身による変更（キー・画面の端での切り替え）は、戻した後に行うため打ち消されない。
  *
- * <p>設定でオフにした場合は、乗り物による変更を少しずつ貯め、半分（22.5度）を超えるごとに45度ずつ視点を変える。
- * 毎tickの変更は1〜2度程度と小さく、そのまま45度単位にそろえると打ち消されてしまうため。
- * 画面の端でなめらかに回る設定（SteadyViewConfig.freeAngle）のときは、45度単位にそろえず、通常のマイクラと同じく乗り物に合わせて変える。
+ * <p>設定でオフにした場合は、乗り物による変更を少しずつ貯め、1回で回る角度（既定45度）の半分を超えるごとに、その角度ずつ視点を変える。
+ * 毎tickの変更は1〜2度程度と小さく、そのまま角度の単位にそろえると打ち消されてしまうため。
+ * 画面の端でなめらかに回る設定（SteadyViewConfig.freeAngle）のときは、角度の単位にそろえず、通常のマイクラと同じく乗り物に合わせて変える。
  */
 public final class RideViewKeeper {
 	private static @Nullable LocalPlayer lastPlayer;
@@ -26,7 +26,7 @@ public final class RideViewKeeper {
 	}
 
 	/**
-	 * 乗り物に乗っていて、前のtickの終わりから向きが変わっていれば戻す（設定がオフなら45度単位で追従させる）。
+	 * 乗り物に乗っていて、前のtickの終わりから向きが変わっていれば戻す（設定がオフなら、1回で回る角度の単位で追従させる）。
 	 * tickの終わり、Modによる向きの変更の前に呼ぶ。
 	 */
 	public static void restoreIfChanged(final LocalPlayer player) {
@@ -51,10 +51,11 @@ public final class RideViewKeeper {
 			return;
 		}
 
+		float step = ViewSnapper.step();
 		pendingYaw += yawDelta;
-		int steps = Math.round(pendingYaw / AngleMath.STEP);
-		pendingYaw -= steps * AngleMath.STEP;
-		ViewSnapper.setRotation(player, lastYaw + steps * AngleMath.STEP, AngleMath.snapPitch(player.getXRot()));
+		int steps = Math.round(pendingYaw / step);
+		pendingYaw -= steps * step;
+		ViewSnapper.setRotation(player, lastYaw + steps * step, AngleMath.snapPitch(player.getXRot(), step));
 	}
 
 	/** 今の向きを覚える。tickの終わり、Modによる向きの変更の後に呼ぶ。 */

@@ -1,11 +1,16 @@
 {
 	"key.category.steadyview.steadyview": "Steady View",
 	"key.steadyview.toggle": "Toggle Steady View",
-	"key.steadyview.turn_left": "Turn Left 45°",
-	"key.steadyview.turn_right": "Turn Right 45°",
-	"key.steadyview.look_up": "Look Up 45°",
-	"key.steadyview.look_down": "Look Down 45°",
+	"key.steadyview.turn_left": "Turn Left",
+	"key.steadyview.turn_right": "Turn Right",
+	"key.steadyview.look_up": "Look Up",
+	"key.steadyview.look_down": "Look Down",
 	"key.steadyview.level_view": "Level View",
 	"message.steadyview.enabled": "Steady View: On",
-	"message.steadyview.disabled": "Steady View: Off"
+	"message.steadyview.disabled": "Steady View: Off",
+	"key.steadyview.open_settings": "Open Steady View Settings",
+	"steadyview.config.title": "Steady View Settings",
+	"steadyview.config.stepAngle": "Turn Angle",
+	"steadyview.config.stepAngle.tooltip": "How far the view turns per key press or screen-edge turn. The view snaps to multiples of this angle. Only divisors of 90 can be chosen, so you can always face the four cardinal directions, level, straight up and straight down.",
+	"steadyview.config.degrees": "%s°"
 }

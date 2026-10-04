@@ -1,11 +1,16 @@
 {
 	"key.category.steadyview.steadyview": "Steady View",
 	"key.steadyview.toggle": "Steady Viewの有効・無効",
-	"key.steadyview.turn_left": "左に45度回る",
-	"key.steadyview.turn_right": "右に45度回る",
-	"key.steadyview.look_up": "45度上を向く",
-	"key.steadyview.look_down": "45度下を向く",
+	"key.steadyview.turn_left": "左に回る",
+	"key.steadyview.turn_right": "右に回る",
+	"key.steadyview.look_up": "上を向く",
+	"key.steadyview.look_down": "下を向く",
 	"key.steadyview.level_view": "水平に戻す",
 	"message.steadyview.enabled": "Steady View: 有効",
-	"message.steadyview.disabled": "Steady View: 無効"
+	"message.steadyview.disabled": "Steady View: 無効",
+	"key.steadyview.open_settings": "Steady Viewの設定を開く",
+	"steadyview.config.title": "Steady Viewの設定",
+	"steadyview.config.stepAngle": "1回で回る角度",
+	"steadyview.config.stepAngle.tooltip": "キーと画面の端で、1回に視点が回る角度です。視点はこの角度の単位でそろいます。どの角度でも、東西南北・水平・真上・真下をちょうど向けるよう、90の約数から選びます。",
+	"steadyview.config.degrees": "%s度"
 }

@@ -6,6 +6,16 @@ plugins {
 repositories {
 	// JUnit等のテスト用ライブラリの取得元
 	mavenCentral()
+	// Mod Menu（設定画面を「Mod」一覧から開くため）
+	maven {
+		name = 'TerraformersMC'
+		url = 'https://maven.terraformersmc.com/releases/'
+	}
+	// Text Placeholder API（Mod Menuが必要とする。開発用の起動・ゲーム内テストでだけ使う）
+	maven {
+		name = 'Nucleoid'
+		url = 'https://maven.nucleoid.xyz/'
+	}
 }
 
 loom {
@@ -27,6 +37,12 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
+	// Mod Menu。入っていれば「Mod」一覧から設定画面を開ける（必須ではないため、コンパイル時だけ使う）
+	compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+	// 開発用の起動（runClient）とゲーム内テストでは、Mod Menuも入れて「Mod」一覧から設定画面を開けることを確かめる
+	localRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
+	localRuntime "eu.pb4:placeholder-api:${project.placeholder_api_version}"
+
 	// 角度の計算等、マイクラに依存しない処理の単体テスト用
 	testImplementation platform("org.junit:junit-bom:${project.junit_version}")
 	testImplementation "org.junit.jupiter:junit-jupiter"
@@ -47,6 +63,11 @@ fabricApi {
 		// マイクラのEULAへの同意（オンライン公園のサーバ構築時に同意済み）
 		eula = true
 	}
+}
+
+dependencies {
+	// ゲーム内テストで、Mod Menuの入口（ModMenuApi）を呼んで確かめるため（gametestのソースセットは上のfabricApiで作られる）
+	gametestCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
 processResources {

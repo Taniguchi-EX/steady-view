@@ -24,6 +24,7 @@ public class SteadyViewClient implements ClientModInitializer {
 	private static final int KEY_R = 21;
 	private static final int KEY_V = 25;
 	private static final int KEY_B = 5;
+	private static final int KEY_F7 = 64;
 	private static final int KEY_F8 = 65;
 
 	private static SteadyViewConfig config = new SteadyViewConfig();
@@ -35,6 +36,7 @@ public class SteadyViewClient implements ClientModInitializer {
 	private static KeyMapping lookUpKey;
 	private static KeyMapping lookDownKey;
 	private static KeyMapping levelViewKey;
+	private static KeyMapping openSettingsKey;
 
 	@Override
 	public void onInitializeClient() {
@@ -48,6 +50,7 @@ public class SteadyViewClient implements ClientModInitializer {
 		lookUpKey = register("look_up", KEY_R, category);
 		lookDownKey = register("look_down", KEY_V, category);
 		levelViewKey = register("level_view", KEY_B, category);
+		openSettingsKey = register("open_settings", KEY_F7, category);
 
 		ClientTickEvents.END_CLIENT_TICK.register(SteadyViewClient::onEndTick);
 		// マイクラ本体の設定（options.txt）は起動処理の中で読み込まれるため、起動が終わってから反映する
@@ -70,6 +73,13 @@ public class SteadyViewClient implements ClientModInitializer {
 	private static void onEndTick(final Minecraft minecraft) {
 		while (toggleKey.consumeClick()) {
 			setEnabled(minecraft, !enabled);
+		}
+
+		// 設定画面は、Modが無効なときも開けるようにする（閉じるとゲームに戻る）
+		while (openSettingsKey.consumeClick()) {
+			if (minecraft.gui.screen() == null) {
+				minecraft.gui.setScreen(new SteadyViewConfigScreen(null));
+			}
 		}
 
 		int yawSteps = 0;
