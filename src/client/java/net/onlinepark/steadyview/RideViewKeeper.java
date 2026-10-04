@@ -13,6 +13,7 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>設定でオフにした場合は、乗り物による変更を少しずつ貯め、半分（22.5度）を超えるごとに45度ずつ視点を変える。
  * 毎tickの変更は1〜2度程度と小さく、そのまま45度単位にそろえると打ち消されてしまうため。
+ * 画面の端でなめらかに回る設定（SteadyViewConfig.freeAngle）のときは、45度単位にそろえず、通常のマイクラと同じく乗り物に合わせて変える。
  */
 public final class RideViewKeeper {
 	private static @Nullable LocalPlayer lastPlayer;
@@ -42,6 +43,11 @@ public final class RideViewKeeper {
 		if (SteadyViewClient.config().keepViewWhileRiding) {
 			pendingYaw = 0.0F;
 			ViewSnapper.setRotation(player, lastYaw, lastPitch);
+			return;
+		}
+
+		if (SteadyViewClient.config().freeAngle()) {
+			pendingYaw = 0.0F;
 			return;
 		}
 

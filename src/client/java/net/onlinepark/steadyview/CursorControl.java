@@ -3,6 +3,8 @@ package net.onlinepark.steadyview;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
 import java.nio.FloatBuffer;
+import net.minecraft.client.Minecraft;
+import net.onlinepark.steadyview.mixin.MouseHandlerAccessor;
 import org.lwjgl.sdl.SDLMouse;
 import org.lwjgl.sdl.SDLVideo;
 import org.lwjgl.system.MemoryStack;
@@ -32,6 +34,14 @@ public final class CursorControl {
 	public static void hideCursorInGame(final Window window) {
 		releaseConfinement(window);
 		InputConstants.grabMouse(window, window.getScreenWidth() / 2.0, window.getScreenHeight() / 2.0);
+	}
+
+	/** カーソルを動かす（ウィンドウ内の座標）。MouseHandlerが持つ位置もすぐに書き換える。 */
+	public static void warp(final Minecraft minecraft, final double x, final double y) {
+		MouseHandlerAccessor accessor = (MouseHandlerAccessor)minecraft.mouseHandler;
+		accessor.steadyview$setXpos(x);
+		accessor.steadyview$setYpos(y);
+		SDLMouse.SDL_WarpMouseInWindow(minecraft.getWindow().handle(), (float)x, (float)y);
 	}
 
 	/** カーソルの現在位置（ウィンドウ内の座標）を返す。 */

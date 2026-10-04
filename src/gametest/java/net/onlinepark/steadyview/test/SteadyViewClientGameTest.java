@@ -26,6 +26,7 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.onlinepark.steadyview.CursorPicker;
+import net.onlinepark.steadyview.EdgeTurnMode;
 import net.onlinepark.steadyview.RecommendedSettings;
 import net.onlinepark.steadyview.SteadyViewClient;
 import org.joml.Matrix4f;
@@ -55,6 +56,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 			connection.waitForChunksRender();
 			testRotation(context, singleplayer.getServer());
 			testEdgeTurn(context, singleplayer.getServer());
+			testEdgeFollow(context, singleplayer.getServer());
 			testKeepViewWhileRiding(context, singleplayer.getServer());
 			testCursorPick(context, singleplayer.getServer());
 		}
@@ -411,6 +413,66 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 	}
 
 	/** ボートに乗ったとき・ボートが曲がったときに、視点が自動で変わらないこと。設定でオフにすると通常どおり変わること */
+	/** 画面の端でなめらかに回る設定（edgeTurnModeがPUSH・SCROLL） */
+	private static void testEdgeFollow(final ClientGameTestContext context, final TestServerContext server) {
+		Window window = context.computeOnClient(Minecraft::getWindow);
+		double width = window.getScreenWidth();
+		double height = window.getScreenHeight();
+
+		// PUSH: 端の手前の線（端から16）を越えた分だけ回り、カーソルは線の上に戻る
+		context.runOnClient(minecraft -> SteadyViewClient.config().edgeTurnMode = EdgeTurnMode.PUSH);
+		setUpStage(context, server);
+		context.getInput().setCursorPos(0.0, height * 0.5);
+		context.waitTicks(3);
+		float yaw = context.computeOnClient(minecraft -> minecraft.player.getYRot());
+		// 既定の感度では、1ドットで0.15度。16ドット押し込んだので2.4度
+		check(yaw < -1.0F && yaw > -5.0F, "左端に押し込んだ分だけ左に回っていない（実際: " + yaw + "）");
+		double cursorX = context.computeOnClient(minecraft -> minecraft.mouseHandler.xpos());
+		check(Math.abs(cursorX - 16.0) < 1.0, "押し込んだ後、カーソルが線の上に戻っていない（実際: " + cursorX + "）");
+		// マウスを止めれば止まる
+		context.waitTicks(10);
+		assertRotation(context, yaw, 0.0F, "マウスを止めても回り続けた");
+		// 45度単位にそろえない
+		context.waitTicks(5);
+		assertRotation(context, yaw, 0.0F, "45度単位にそろえた");
+		// キーでは、今の向きから45度回る
+		pressSteadyViewKey(context, "turn_right");
+		assertRotation(context, yaw + 45.0F, 0.0F, "今の向きから45度回っていない");
+		pressSteadyViewKey(context, "look_down");
+		pressSteadyViewKey(context, "level_view");
+		assertRotation(context, yaw + 45.0F, 0.0F, "水平に戻したとき、左右の向きが変わった");
+		// 上端に押し込むと上を向く
+		context.getInput().setCursorPos(width * 0.5, 0.0);
+		context.waitTicks(3);
+		float pitch = context.computeOnClient(minecraft -> minecraft.player.getXRot());
+		check(pitch < -1.0F, "上端に押し込んでも上を向いていない（実際: " + pitch + "）");
+		context.takeScreenshot("steadyview-06b-edge-push");
+
+		// SCROLL: 端にある間、一定の速さ（既定で1秒に90度）で回り続ける
+		context.runOnClient(minecraft -> SteadyViewClient.config().edgeTurnMode = EdgeTurnMode.SCROLL);
+		context.getInput().setCursorPos(width * 0.5, height * 0.5);
+		setUpStage(context, server);
+		context.getInput().setCursorPos(width - 1.0, height * 0.5);
+		context.waitTicks(10);
+		yaw = context.computeOnClient(minecraft -> minecraft.player.getYRot());
+		check(yaw > 10.0F, "右端に置いても右に回り続けていない（実際: " + yaw + "）");
+		context.getInput().setCursorPos(width * 0.5, height * 0.5);
+		context.waitTicks(2);
+		yaw = context.computeOnClient(minecraft -> minecraft.player.getYRot());
+		context.waitTicks(10);
+		assertRotation(context, yaw, 0.0F, "端から離しても回り続けた");
+		context.getInput().setCursorPos(width * 0.5, height - 1.0);
+		context.waitTicks(10);
+		pitch = context.computeOnClient(minecraft -> minecraft.player.getXRot());
+		check(pitch > 10.0F, "下端に置いても下を向いていない（実際: " + pitch + "）");
+		context.takeScreenshot("steadyview-06c-edge-scroll");
+
+		// 45度切り替えに戻すと、45度単位にそろう
+		context.runOnClient(minecraft -> SteadyViewClient.config().edgeTurnMode = EdgeTurnMode.STEP);
+		context.getInput().setCursorPos(width * 0.5, height * 0.5);
+		setUpStage(context, server);
+	}
+
 	private static void testKeepViewWhileRiding(final ClientGameTestContext context, final TestServerContext server) {
 		setUpStage(context, server);
 		// ボートは曲がるときに少しずつ前へ進むため、ぶつからないよう周りのブロックを片付けてから水を張る

@@ -67,4 +67,19 @@ class AngleMathTest {
 		// マウスで回した後に残るわずかな誤差もずれとして扱う（ゲーム内テストで実際に出た値）
 		assertFalse(AngleMath.isSnapped(45.000008F, 0.0F));
 	}
+
+	@Test
+	void turnYawFreeKeepsOffset() {
+		assertEquals(75.0F, AngleMath.turnYawFree(30.0F, 1), DELTA);
+		assertEquals(-15.0F, AngleMath.turnYawFree(30.0F, -1), DELTA);
+		assertEquals(390.0F, AngleMath.turnYawFree(30.0F, 8), DELTA);
+	}
+
+	@Test
+	void tiltPitchFreeKeepsOffsetAndStops() {
+		assertEquals(55.0F, AngleMath.tiltPitchFree(10.0F, 1), DELTA);
+		assertEquals(-35.0F, AngleMath.tiltPitchFree(10.0F, -1), DELTA);
+		assertEquals(90.0F, AngleMath.tiltPitchFree(60.0F, 1), DELTA);
+		assertEquals(-90.0F, AngleMath.tiltPitchFree(-60.0F, -1), DELTA);
+	}
 }

@@ -108,7 +108,7 @@ public class SteadyViewClient implements ClientModInitializer {
 			ViewSnapper.turn(player, yawSteps, pitchSteps);
 		}
 
-		// カーソルが画面の端にあれば、その方向に回る
+		// カーソルが画面の端にあれば、その方向に45度回る（なめらかに回る設定のときは、EdgeFollowerが毎フレーム回す）
 		EdgeTurner.tick(minecraft, player);
 
 		// ワールドに入った直後やテレポートの後等、向きがずれていたらそろえる

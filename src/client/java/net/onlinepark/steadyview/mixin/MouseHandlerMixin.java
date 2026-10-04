@@ -3,7 +3,9 @@ package net.onlinepark.steadyview.mixin;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
 import net.onlinepark.steadyview.CursorControl;
+import net.onlinepark.steadyview.EdgeFollower;
 import net.onlinepark.steadyview.SteadyViewClient;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -19,10 +21,11 @@ public abstract class MouseHandlerMixin {
 	@Shadow
 	private double ypos;
 
-	/** 有効なときは、マウスの動きで視点を動かさない */
+	/** 有効なときは、マウスの動きで視点を動かさない。代わりに、画面の端でなめらかに回す設定なら回す（毎フレーム呼ばれる） */
 	@Inject(method = "turnPlayer", at = @At("HEAD"), cancellable = true)
 	private void steadyview$disableMouseLook(final double mousea, final CallbackInfo ci) {
 		if (SteadyViewClient.isEnabled()) {
+			EdgeFollower.frame(Minecraft.getInstance(), mousea);
 			ci.cancel();
 		}
 	}

@@ -6,6 +6,7 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Properties;
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -21,8 +22,12 @@ public final class SteadyViewConfig {
 	public boolean confineCursor = true;
 	/** 有効なとき、画面中央の照準を隠すか */
 	public boolean hideCrosshair = true;
-	/** カーソルを画面の端まで動かしたとき、その方向に視点を45度切り替えるか */
+	/** カーソルを画面の端まで動かしたとき、その方向に視点を変えるか */
 	public boolean turnAtScreenEdge = true;
+	/** 画面の端での視点の変え方 */
+	public EdgeTurnMode edgeTurnMode = EdgeTurnMode.STEP;
+	/** edgeTurnModeがSCROLLのとき、1秒間に回る角度（度） */
+	public double edgeScrollSpeed = 90.0;
 	/** 乗り物（ボート・トロッコ・馬等）に乗っている間、マイクラ本体による自動的な視点の変更を打ち消すか */
 	public boolean keepViewWhileRiding = true;
 	/** 弓・雪玉等の飛ばすアイテムを、カーソルの方向へ飛ばすか */
@@ -43,6 +48,8 @@ public final class SteadyViewConfig {
 				config.confineCursor = getBoolean(properties, "confineCursor", config.confineCursor);
 				config.hideCrosshair = getBoolean(properties, "hideCrosshair", config.hideCrosshair);
 				config.turnAtScreenEdge = getBoolean(properties, "turnAtScreenEdge", config.turnAtScreenEdge);
+				config.edgeTurnMode = getMode(properties, "edgeTurnMode", config.edgeTurnMode);
+				config.edgeScrollSpeed = getPositiveDouble(properties, "edgeScrollSpeed", config.edgeScrollSpeed);
 				config.keepViewWhileRiding = getBoolean(properties, "keepViewWhileRiding", config.keepViewWhileRiding);
 				config.aimItemsAtCursor = getBoolean(properties, "aimItemsAtCursor", config.aimItemsAtCursor);
 				config.recommendedSettingsApplied = getBoolean(properties, "recommendedSettingsApplied", config.recommendedSettingsApplied);
@@ -67,6 +74,8 @@ public final class SteadyViewConfig {
 		properties.setProperty("confineCursor", Boolean.toString(this.confineCursor));
 		properties.setProperty("hideCrosshair", Boolean.toString(this.hideCrosshair));
 		properties.setProperty("turnAtScreenEdge", Boolean.toString(this.turnAtScreenEdge));
+		properties.setProperty("edgeTurnMode", this.edgeTurnMode.name().toLowerCase(Locale.ROOT));
+		properties.setProperty("edgeScrollSpeed", Double.toString(this.edgeScrollSpeed));
 		properties.setProperty("keepViewWhileRiding", Boolean.toString(this.keepViewWhileRiding));
 		properties.setProperty("aimItemsAtCursor", Boolean.toString(this.aimItemsAtCursor));
 		properties.setProperty("recommendedSettingsApplied", Boolean.toString(this.recommendedSettingsApplied));
@@ -78,6 +87,47 @@ public final class SteadyViewConfig {
 		} catch (IOException e) {
 			SteadyViewClient.LOGGER.warn("Failed to write {}.", this.path, e);
 		}
+	}
+
+	/**
+	 * 視点の向きを45度単位に限らないか。画面の端でなめらかに回る方式（PUSH・SCROLL）のときはtrue。
+	 * このときは、キーで回るときも今の向きから45度回り、45度単位にはそろえない。
+	 */
+	public boolean freeAngle() {
+		return this.turnAtScreenEdge && this.edgeTurnMode != EdgeTurnMode.STEP;
+	}
+
+	private static EdgeTurnMode getMode(final Properties properties, final String key, final EdgeTurnMode defaultValue) {
+		String value = properties.getProperty(key);
+		if (value == null) {
+			return defaultValue;
+		}
+
+		try {
+			return EdgeTurnMode.valueOf(value.trim().toUpperCase(Locale.ROOT));
+		} catch (IllegalArgumentException e) {
+			SteadyViewClient.LOGGER.warn("Unknown {}: {}. Using {}.", key, value, defaultValue);
+			return defaultValue;
+		}
+	}
+
+	private static double getPositiveDouble(final Properties properties, final String key, final double defaultValue) {
+		String value = properties.getProperty(key);
+		if (value == null) {
+			return defaultValue;
+		}
+
+		try {
+			double parsed = Double.parseDouble(value.trim());
+			if (parsed > 0.0 && Double.isFinite(parsed)) {
+				return parsed;
+			}
+		} catch (NumberFormatException e) {
+			// 下で既定値にする
+		}
+
+		SteadyViewClient.LOGGER.warn("Invalid {}: {}. Using {}.", key, value, defaultValue);
+		return defaultValue;
 	}
 
 	private static boolean getBoolean(final Properties properties, final String key, final boolean defaultValue) {

@@ -33,6 +33,16 @@ public final class AngleMath {
 		return clampPitch(snapPitch(pitch) + steps * STEP);
 	}
 
+	/** 今の向きから、steps回分（45度ずつ）回す。45度単位にはそろえない。正の値で右回り。 */
+	public static float turnYawFree(final float yaw, final int steps) {
+		return yaw + steps * STEP;
+	}
+
+	/** 今の向きから、steps回分（45度ずつ）傾ける。45度単位にはそろえない。正の値で下向き。真上・真下で止まる。 */
+	public static float tiltPitchFree(final float pitch, final int steps) {
+		return clampPitch(pitch + steps * STEP);
+	}
+
 	/** ヨー・ピッチがどちらも45度単位ちょうどになっているか。わずかな誤差もずれとして扱う（そろえた値は誤差なく表せるため）。 */
 	public static boolean isSnapped(final float yaw, final float pitch) {
 		return yaw == snapYaw(yaw) && pitch == snapPitch(pitch);

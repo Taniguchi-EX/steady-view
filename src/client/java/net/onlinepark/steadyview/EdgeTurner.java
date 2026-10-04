@@ -5,15 +5,13 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.phys.Vec3;
-import net.onlinepark.steadyview.mixin.MouseHandlerAccessor;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector4f;
 import org.jspecify.annotations.Nullable;
-import org.lwjgl.sdl.SDLMouse;
 
 /**
- * カーソルを画面の端まで動かしたとき、その方向に視点を45度切り替える。
+ * カーソルを画面の端まで動かしたとき、その方向に視点を45度切り替える（設定のedgeTurnModeがSTEPのとき）。
  *
  * <p>切り替えた後は、切り替える前にカーソルが指していた方向（ワールド内の向き）が新しい視点で映る位置へ、カーソルを動かす。
  * これにより、狙っていた物を指したまま視点だけが変わる。
@@ -42,6 +40,7 @@ public final class EdgeTurner {
 	 */
 	public static boolean tick(final Minecraft minecraft, final LocalPlayer player) {
 		if (!SteadyViewClient.config().turnAtScreenEdge
+			|| SteadyViewClient.config().edgeTurnMode != EdgeTurnMode.STEP
 			|| minecraft.gui.screen() != null
 			|| !minecraft.mouseHandler.isMouseGrabbed()
 			|| !minecraft.isWindowActive()) {
@@ -96,7 +95,7 @@ public final class EdgeTurner {
 			position = new double[]{x, y};
 		}
 
-		moveCursor(minecraft, clamp(position[0], width), clamp(position[1], height));
+		CursorControl.warp(minecraft, clamp(position[0], width), clamp(position[1], height));
 		cooldown = COOLDOWN_TICKS;
 		return true;
 	}
@@ -134,12 +133,5 @@ public final class EdgeTurner {
 
 	private static double clamp(final double value, final double size) {
 		return Math.max(MARGIN, Math.min(size - MARGIN, value));
-	}
-
-	private static void moveCursor(final Minecraft minecraft, final double x, final double y) {
-		MouseHandlerAccessor accessor = (MouseHandlerAccessor)minecraft.mouseHandler;
-		accessor.steadyview$setXpos(x);
-		accessor.steadyview$setYpos(y);
-		SDLMouse.SDL_WarpMouseInWindow(minecraft.getWindow().handle(), (float)x, (float)y);
 	}
 }
