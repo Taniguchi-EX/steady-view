@@ -73,6 +73,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 			testEdgeFollow(context, singleplayer.getServer());
 			testStepAngleSetting(context, singleplayer.getServer());
 			testPlayerOpacity(context, singleplayer.getServer());
+			testEdgeSettings(context, singleplayer.getServer());
 			testKeepViewWhileRiding(context, singleplayer.getServer());
 			testCursorPick(context, singleplayer.getServer());
 		}
@@ -503,6 +504,79 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		context.runOnClient(minecraft -> SteadyViewClient.config().stepAngle = 45);
 		context.getInput().setCursorPos(window.getScreenWidth() / 2.0, window.getScreenHeight() / 2.0);
 		setUpStage(context, server);
+	}
+
+	/** 設定画面で、画面の端での回り方（4通り）と回る速さを変えられること */
+	private static void testEdgeSettings(final ClientGameTestContext context, final TestServerContext server) {
+		setUpStage(context, server);
+		pressSteadyViewKey(context, "open_settings");
+		check(context.computeOnClient(minecraft -> minecraft.gui.screen() instanceof SteadyViewConfigScreen), "キーで設定画面が開かない");
+		assertEdgeSetting(context, true, EdgeTurnMode.STEP, false, "最初");
+
+		// ボタンを押すたびに「決まった角度ずつ → 押し込んだ分だけ → 一定の速さで → 回らない → 決まった角度ずつ」と切り替わる
+		clickWidget(context, screen -> screen.edgeTurnWidget(), 0.5);
+		assertEdgeSetting(context, true, EdgeTurnMode.PUSH, false, "1回押した後");
+		clickWidget(context, screen -> screen.edgeTurnWidget(), 0.5);
+		assertEdgeSetting(context, true, EdgeTurnMode.SCROLL, true, "2回押した後");
+
+		// 一定の速さのとき、回る速さのスライダーで毎秒180度にする（10〜360度の36段階）
+		clickWidget(context, screen -> screen.edgeScrollSpeedWidget(), (18.0 - 1.0) / 35.0);
+		double speed = context.computeOnClient(minecraft -> SteadyViewClient.config().edgeScrollSpeed);
+		check(speed == 180.0, "スライダーで回る速さを毎秒180度にできない（実際: " + speed + "）");
+		context.takeScreenshot("steadyview-15-settings-edge");
+
+		clickWidget(context, screen -> screen.edgeTurnWidget(), 0.5);
+		// 回らないにしても、回り方は前の値のまま残す
+		assertEdgeSetting(context, false, EdgeTurnMode.SCROLL, false, "3回押した後");
+		clickWidget(context, screen -> screen.edgeTurnWidget(), 0.5);
+		assertEdgeSetting(context, true, EdgeTurnMode.STEP, false, "4回押した後");
+
+		// 閉じると設定ファイルに保存される
+		context.runOnClient(minecraft -> minecraft.gui.screen().onClose());
+		context.waitTicks(2);
+		String saved = context.computeOnClient(minecraft -> {
+			try {
+				return Files.readString(FabricLoader.getInstance().getConfigDir().resolve("steadyview.properties"));
+			} catch (IOException e) {
+				throw new UncheckedIOException(e);
+			}
+		});
+		check(saved.contains("turnAtScreenEdge=true") && saved.contains("edgeTurnMode=step") && saved.contains("edgeScrollSpeed=180.0"),
+			"設定ファイルに画面の端の設定が保存されていない");
+
+		// 元に戻す
+		context.runOnClient(minecraft -> SteadyViewClient.config().edgeScrollSpeed = 90.0);
+		Window window = context.computeOnClient(Minecraft::getWindow);
+		context.getInput().setCursorPos(window.getScreenWidth() / 2.0, window.getScreenHeight() / 2.0);
+		context.waitTicks(2);
+	}
+
+	/** 設定画面の部品の、左から fraction の位置（スライダーなら値の位置）をクリックする */
+	private static void clickWidget(
+		final ClientGameTestContext context, final Function<SteadyViewConfigScreen, AbstractWidget> widget, final double fraction
+	) {
+		double[] point = context.computeOnClient(minecraft -> {
+			AbstractWidget target = widget.apply((SteadyViewConfigScreen)minecraft.gui.screen());
+			double scale = minecraft.getWindow().getGuiScale();
+			// スライダーのつまみの幅（8）の半分ずつ、両端は値の範囲に入らない（ボタンでも中央付近を押すので問題ない）
+			double x = target.getX() + 4 + (target.getWidth() - 8) * fraction;
+			double y = target.getY() + target.getHeight() / 2.0;
+			return new double[]{x * scale, y * scale};
+		});
+		context.getInput().setCursorPos(point[0], point[1]);
+		context.getInput().pressMouse(1);
+		context.waitTicks(2);
+	}
+
+	private static void assertEdgeSetting(
+		final ClientGameTestContext context, final boolean turnAtScreenEdge, final EdgeTurnMode mode, final boolean speedActive, final String when
+	) {
+		String actual = context.computeOnClient(minecraft -> {
+			SteadyViewConfigScreen screen = (SteadyViewConfigScreen)minecraft.gui.screen();
+			return SteadyViewClient.config().turnAtScreenEdge + "/" + SteadyViewClient.config().edgeTurnMode + "/" + screen.edgeScrollSpeedWidget().active;
+		});
+		String expected = turnAtScreenEdge + "/" + mode + "/" + speedActive;
+		check(actual.equals(expected), when + "の画面の端の設定が期待どおりでない（期待: " + expected + " / 実際: " + actual + "、turnAtScreenEdge/edgeTurnMode/速さのスライダーが押せるか）");
 	}
 
 	/** 三人称視点で、自分の体が設定の不透明度で半透明に描かれること */

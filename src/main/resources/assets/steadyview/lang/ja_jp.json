@@ -15,5 +15,17 @@
 	"steadyview.config.degrees": "%s度",
 	"steadyview.config.playerOpacity": "自分の体の不透明度",
 	"steadyview.config.playerOpacity.tooltip": "三人称視点（F5）で見える自分の体の不透明度です。下げると半透明になり、体の向こう側が見えるようになります。防具・手に持ったアイテム等は不透明のままです。他のプレイヤーからの見え方は変わりません。",
-	"steadyview.config.percent": "%s%%"
+	"steadyview.config.percent": "%s%%",
+	"steadyview.config.edgeTurn": "画面の端での回り方",
+	"steadyview.config.edgeTurn.off": "回らない",
+	"steadyview.config.edgeTurn.step": "決まった角度ずつ",
+	"steadyview.config.edgeTurn.push": "押し込んだ分だけ",
+	"steadyview.config.edgeTurn.scroll": "一定の速さで",
+	"steadyview.config.edgeTurn.off.tooltip": "カーソルを画面の端に動かしても、視点は回りません。視点はキーだけで変えます。",
+	"steadyview.config.edgeTurn.step.tooltip": "カーソルが画面の端に来たら、その方向に「1回で回る角度」だけ視点を切り替えます。カーソルは、狙っていた物を指したまま内側へ移ります。",
+	"steadyview.config.edgeTurn.push.tooltip": "カーソルを画面の端からさらに外側へ動かした分だけ、視点がなめらかに回ります。マウスを止めると止まります。速さはマイクラのマウス感度に従います。",
+	"steadyview.config.edgeTurn.scroll.tooltip": "カーソルが画面の端にある間、視点が一定の速さで回り続けます。速さは「回る速さ」で変えられます。",
+	"steadyview.config.edgeScrollSpeed": "回る速さ",
+	"steadyview.config.edgeScrollSpeed.tooltip": "「画面の端での回り方」が「一定の速さで」のとき、1秒間に視点が回る角度です。",
+	"steadyview.config.degreesPerSecond": "毎秒%s度"
 }

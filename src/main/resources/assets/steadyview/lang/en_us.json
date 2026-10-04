@@ -15,5 +15,17 @@
 	"steadyview.config.degrees": "%s°",
 	"steadyview.config.playerOpacity": "Own Body Opacity",
 	"steadyview.config.playerOpacity.tooltip": "Opacity of your own body in third-person view (F5). Lower it to see through your body. Armor and held items stay opaque. Other players see you as usual.",
-	"steadyview.config.percent": "%s%%"
+	"steadyview.config.percent": "%s%%",
+	"steadyview.config.edgeTurn": "Screen Edge Turning",
+	"steadyview.config.edgeTurn.off": "Off",
+	"steadyview.config.edgeTurn.step": "Fixed Steps",
+	"steadyview.config.edgeTurn.push": "Push",
+	"steadyview.config.edgeTurn.scroll": "Constant Speed",
+	"steadyview.config.edgeTurn.off.tooltip": "Moving the cursor to the screen edge does not turn the view. Use the keys to turn.",
+	"steadyview.config.edgeTurn.step.tooltip": "When the cursor reaches a screen edge, the view turns by the Turn Angle in that direction. The cursor moves inward, still pointing at the same thing.",
+	"steadyview.config.edgeTurn.push.tooltip": "The view turns smoothly as far as you push the cursor beyond the screen edge, and stops when the mouse stops. Speed follows your mouse sensitivity.",
+	"steadyview.config.edgeTurn.scroll.tooltip": "While the cursor is at a screen edge, the view keeps turning at a constant speed. Set the speed with Turn Speed.",
+	"steadyview.config.edgeScrollSpeed": "Turn Speed",
+	"steadyview.config.edgeScrollSpeed.tooltip": "Degrees per second the view turns when Screen Edge Turning is Constant Speed.",
+	"steadyview.config.degreesPerSecond": "%s°/s"
 }
