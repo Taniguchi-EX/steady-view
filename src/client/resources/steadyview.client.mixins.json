@@ -5,8 +5,10 @@
 	"client": [
 		"AvatarRenderStateMixin",
 		"AvatarRendererMixin",
+		"CameraMixin",
 		"CapeLayerMixin",
 		"EquipmentLayerRendererMixin",
+		"GlobalSettingsUniformMixin",
 		"HudMixin",
 		"InventoryScreenMixin",
 		"LivingEntityRendererMixin",
