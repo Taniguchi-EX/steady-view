@@ -106,18 +106,43 @@ public final class CursorPicker {
 			cameraEntity, from, to, box,
 			EntitySelector.CAN_BE_PICKED.and(entity -> entity != cameraEntity && (region == null || !region.contains(entity))), maxDistanceSq
 		);
-		return entityHitResult != null && entityHitResult.getLocation().distanceToSqr(from) < blockDistanceSq
+		HitResult hitResult = entityHitResult != null && entityHitResult.getLocation().distanceToSqr(from) < blockDistanceSq
 			? filterHitResult(entityHitResult, eye, entityRange)
 			: filterHitResult(blockHitResult, eye, blockRange);
+		return visibleFromEye(cameraEntity, eye, hitResult) ? hitResult : missAt(hitResult.getLocation(), eye);
+	}
+
+	/**
+	 * プレイヤーの目から、狙った点まで（壁等に遮られずに）届くか。
+	 *
+	 * <p>カーソルの方向はカメラから調べるため、三人称視点ではカメラからは見えていても、プレイヤーとの間に壁がある物に当たることがある
+	 * （例: 透かしている壁の、カメラ側にあるブロック）。通常のマイクラと同じく、プレイヤーの体から壁越しには触れないようにする。
+	 * 一人称視点ではカメラが目の位置にあるため、いつも届く。
+	 */
+	private static boolean visibleFromEye(final Entity cameraEntity, final Vec3 eye, final HitResult hitResult) {
+		if (hitResult.getType() == HitResult.Type.MISS) {
+			return true;
+		}
+
+		Vec3 target = hitResult.getLocation();
+		BlockHitResult between = cameraEntity.level().clip(new ClipContext(eye, target, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, cameraEntity));
+		if (between.getType() == HitResult.Type.MISS) {
+			return true;
+		}
+
+		// 狙ったブロックそのものに当たった（別の面から入った場合を含む）、または狙った点のすぐ手前で当たった
+		return hitResult instanceof BlockHitResult blockHit && between.getBlockPos().equals(blockHit.getBlockPos())
+			|| between.getLocation().distanceToSqr(target) < 1.0E-4;
 	}
 
 	/** 届かない物は「何も狙っていない」扱いにする（マイクラ本体の{@code LocalPlayer.filterHitResult}と同じ）。 */
 	private static HitResult filterHitResult(final HitResult hitResult, final Vec3 eye, final double maxRange) {
 		Vec3 location = hitResult.getLocation();
-		if (location.closerThan(eye, maxRange)) {
-			return hitResult;
-		}
+		return location.closerThan(eye, maxRange) ? hitResult : missAt(location, eye);
+	}
 
+	/** 「何も狙っていない」ことを表す結果 */
+	private static HitResult missAt(final Vec3 location, final Vec3 eye) {
 		Direction direction = Direction.getApproximateNearest(location.x - eye.x, location.y - eye.y, location.z - eye.z);
 		return BlockHitResult.miss(location, direction, BlockPos.containing(location));
 	}

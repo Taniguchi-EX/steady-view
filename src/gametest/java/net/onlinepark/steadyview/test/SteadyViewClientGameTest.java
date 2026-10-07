@@ -620,26 +620,49 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		Path seeThrough = context.takeScreenshot("steadyview-16b-see-through-wall");
 		// 透けて見える壁は、カーソルで狙えない
 		String throughWall = context.computeOnClient(minecraft -> describe(minecraft.hitResult));
-		check(!throughWall.contains("z=-2"), "透けて見える壁をカーソルで狙えてしまう（実際: " + throughWall + "）");
+		check(!(throughWall.startsWith("BLOCK ") && throughWall.contains("z=-2")), "透けて見える壁をカーソルで狙えてしまう（実際: " + throughWall + "）");
 
 		// 透かす範囲の半径を0にすると、壁が見え、狙える（シェーダーにプレイヤーの位置と半径が渡っていることの確認）
 		context.runOnClient(minecraft -> SteadyViewClient.config().seeThroughRadius = 0.0);
 		context.waitTicks(5);
 		Path wallShown = context.takeScreenshot("steadyview-16c-see-through-radius-0");
 		String onWall = context.computeOnClient(minecraft -> describe(minecraft.hitResult));
-		check(onWall.contains("z=-2"), "半径0にしても、壁を狙えない（実際: " + onWall + "）");
+		check(onWall.startsWith("BLOCK ") && onWall.contains("z=-2"), "半径0にしても、壁を狙えない（実際: " + onWall + "）");
 		context.runOnClient(minecraft -> SteadyViewClient.config().seeThroughRadius = 1.5);
 		assertSameCenter(context, noWall, seeThrough, wallShown, "壁", 0.5, 0.4);
 
 		// 厚い壁（2ブロック）: 手前を透かすと、奥のブロックの面（隣のブロックに覆われてもともと描かれない面）が見えなくなる。
-		// 画面のあちこちにカーソルを置き、狙えるのは壁の外側の面のうち、透かす範囲の外の点だけであることを確かめる。
+		// 画面のあちこちにカーソルを置き、壁のブロックをどれも狙えないことを確かめる。
+		// 見えている壁のカメラ側の面も、プレイヤーとの間に壁そのものがあるため、壁越しになって狙えない。
 		// （壁がカメラに近すぎると、画面に映る壁がすべて透かす範囲に入って壁全体が見えなくなるため、カメラから1.5ブロック離す）
 		server.runCommand("fill -4 -61 -2 4 -55 -1 minecraft:stone");
 		context.waitTicks(10);
 		context.takeScreenshot("steadyview-16c2-see-through-thick-wall");
-		assertNoHiddenTarget(context, new BlockPos(-4, -61, -2), new BlockPos(4, -55, -1), true);
+		assertNoHiddenTarget(context, new BlockPos(-4, -61, -2), new BlockPos(4, -55, -1), false);
 		server.runCommand("fill -4 -61 -2 4 -55 -1 minecraft:air");
 		server.runCommand("fill -4 -61 -2 4 -61 -1 minecraft:grass_block");
+		context.getInput().setCursorPos(centerX, centerY);
+
+		// カメラからは見えていても、プレイヤーとの間に壁があるブロックは狙えない（プレイヤーの体から壁越しには触れない）。
+		// プレイヤーのすぐ後ろ（z=-1）に壁を立て、その壁のカメラ側（z=-2）の、透かす範囲の外に金ブロックを置く
+		server.runCommand("fill -4 -61 -1 4 -55 -1 minecraft:stone");
+		server.runCommand("setblock 2 -59 -2 minecraft:gold_block");
+		context.waitTicks(10);
+		moveCursorTo(context, new Vec3(1.99, -58.5, -1.5));
+		context.waitTicks(2);
+		context.takeScreenshot("steadyview-16c3-see-through-behind-wall");
+		String behindWall = context.computeOnClient(minecraft -> describe(minecraft.hitResult));
+		// （何も狙っていないとき（MISS）も位置は入るため、種類と位置の両方で判断する）
+		check(!(behindWall.startsWith("BLOCK ") && behindWall.contains("x=2, y=-59, z=-2")), "プレイヤーとの間に壁があるブロックを狙えてしまう（実際: " + behindWall + "）");
+		// 壁がなければ、同じブロックを狙える（テストの配置の確認）
+		server.runCommand("fill -4 -60 -1 4 -55 -1 minecraft:air");
+		server.runCommand("fill -4 -61 -1 4 -61 -1 minecraft:grass_block");
+		context.waitTicks(10);
+		moveCursorTo(context, new Vec3(1.99, -58.5, -1.5));
+		context.waitTicks(2);
+		String noWallBetween = context.computeOnClient(minecraft -> describe(minecraft.hitResult));
+		check(noWallBetween.startsWith("BLOCK ") && noWallBetween.contains("x=2, y=-59, z=-2"), "壁がないのに、金ブロックを狙えない（実際: " + noWallBetween + "）");
+		server.runCommand("setblock 2 -59 -2 minecraft:air");
 		context.getInput().setCursorPos(centerX, centerY);
 
 		// カメラとプレイヤーの間に浮いたブタ（線の高さ）がいても、透けて見え、狙えない
@@ -743,7 +766,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 	/**
 	 * 画面のあちこちにカーソルを置き、描かれていないブロックを狙えないことを確かめる。
 	 * wallFrom〜wallToの箱の形の壁について、outerFacesVisibleなら、狙えるのは壁の外側の面（隣が空気の面）のうち透かす範囲の外の点だけ。
-	 * falseなら（カメラが壁の中にあるとき）壁のブロックはどれも狙えない。
+	 * falseなら（カメラが壁の中にあるとき、壁がカメラとプレイヤーの間にあるとき）壁のブロックはどれも狙えない。
 	 */
 	private static void assertNoHiddenTarget(
 		final ClientGameTestContext context, final BlockPos wallFrom, final BlockPos wallTo, final boolean outerFacesVisible
