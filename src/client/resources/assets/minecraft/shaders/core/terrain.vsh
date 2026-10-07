@@ -29,7 +29,7 @@ layout(location = 1) out float cylindricalVertexDistance;
 layout(location = 2) out vec4 vertexColor;
 layout(location = 3) out vec2 texCoord0;
 layout(location = 4) out float chunkVisibility;
-// Steady View: camera-relative position, used by the see-through cutout in the fragment shader
+// Steady View: camera-relative position for the see-through cutout
 layout(location = 5) out vec3 cameraRelativePos;
 
 void main() {

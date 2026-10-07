@@ -15,7 +15,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * Steady Viewの設定画面。マイクラ本体の設定画面（マウス設定等）と同じ部品・見た目で作る。
  *
- * <p>項目は、1回で回る角度・画面の端での回り方・回る速さ（押し込んだ分だけ・一定の速さで）・自分の体の不透明度。
+ * <p>項目は、1回で回る角度・画面の端での回り方・回る速さ（押し込んだ分だけ・一定の速さで）・自分の体の不透明度・
+ * 障害物を透かすか・透かす範囲。
  * Mod Menuの「Mod」一覧の設定ボタン、またはキー（既定F7）で開く。変更は画面を閉じたときに設定ファイルへ保存する。
  */
 public class SteadyViewConfigScreen extends OptionsSubScreen {
@@ -27,6 +28,8 @@ public class SteadyViewConfigScreen extends OptionsSubScreen {
 	private final OptionInstance<Integer> edgeScrollSpeed;
 	private final OptionInstance<Integer> edgePushSpeed;
 	private final OptionInstance<Integer> playerOpacity;
+	private final OptionInstance<Boolean> seeThroughObstacles;
+	private final OptionInstance<Double> seeThroughRadius;
 
 	public SteadyViewConfigScreen(final Screen lastScreen) {
 		super(lastScreen, Minecraft.getInstance().options, TITLE);
@@ -79,6 +82,24 @@ public class SteadyViewConfigScreen extends OptionsSubScreen {
 			this.config.playerOpacity,
 			value -> this.config.playerOpacity = value
 		);
+		this.seeThroughObstacles = OptionInstance.createBoolean(
+			"steadyview.config.seeThroughObstacles",
+			OptionInstance.cachedConstantTooltip(Component.translatable("steadyview.config.seeThroughObstacles.tooltip")),
+			this.config.seeThroughObstacles,
+			value -> {
+				this.config.seeThroughObstacles = value;
+				this.updateSeeThroughActive();
+			}
+		);
+		// 0.5ブロック刻みで、0.5〜3ブロック
+		this.seeThroughRadius = new OptionInstance<>(
+			"steadyview.config.seeThroughRadius",
+			OptionInstance.cachedConstantTooltip(Component.translatable("steadyview.config.seeThroughRadius.tooltip")),
+			(caption, value) -> Options.genericValueLabel(caption, Component.translatable("steadyview.config.blocks", value)),
+			new OptionInstance.IntRange(1, 6).xmap(index -> index * 0.5, value -> Math.max(1, Math.min(6, (int)Math.round(value * 2.0))), true),
+			this.config.seeThroughRadius,
+			value -> this.config.seeThroughRadius = value
+		);
 	}
 
 	/** 1回で回る角度のスライダー（ゲーム内テストで、位置を調べてクリックするため公開する） */
@@ -113,12 +134,33 @@ public class SteadyViewConfigScreen extends OptionsSubScreen {
 		this.list.addBig(this.edgePushSpeed);
 		this.list.addBig(this.edgeScrollSpeed);
 		this.list.addBig(this.playerOpacity);
+		this.list.addBig(this.seeThroughObstacles);
+		this.list.addBig(this.seeThroughRadius);
 	}
 
 	@Override
 	protected void init() {
 		super.init();
 		this.updateSpeedActive();
+		this.updateSeeThroughActive();
+	}
+
+	/** 透かす範囲のスライダーは、障害物を透かすときだけ押せるようにする */
+	private void updateSeeThroughActive() {
+		AbstractWidget radius = this.seeThroughRadiusWidget();
+		if (radius != null) {
+			radius.active = this.config.seeThroughObstacles;
+		}
+	}
+
+	/** 障害物を透かすかのボタン（ゲーム内テスト用） */
+	public @Nullable AbstractWidget seeThroughObstaclesWidget() {
+		return this.list == null ? null : this.list.findOption(this.seeThroughObstacles);
+	}
+
+	/** 透かす範囲の半径のスライダー（ゲーム内テスト用） */
+	public @Nullable AbstractWidget seeThroughRadiusWidget() {
+		return this.list == null ? null : this.list.findOption(this.seeThroughRadius);
 	}
 
 	/** 速さのスライダーは、それぞれの回り方のときだけ使うため、それ以外では押せないようにする */

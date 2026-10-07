@@ -7,6 +7,7 @@
 #include <minecraft:texture_sampling.glsl>
 #include <minecraft:oit.glsl>
 #include <minecraft:terrainglobals.glsl>
+#include <steadyview:cutout.glsl>
 #ifndef MULTIDRAW_TERRAIN
     #include <minecraft:chunksection.glsl>
 #endif
@@ -18,48 +19,8 @@ layout(location = 1) in float cylindricalVertexDistance;
 layout(location = 2) in vec4 vertexColor;
 layout(location = 3) in vec2 texCoord0;
 layout(location = 4) in float chunkVisibility;
+// Steady View: camera-relative position for the see-through cutout
 layout(location = 5) in vec3 cameraRelativePos;
-
-// Steady View: skip faces near the line from the camera to the player's eye and in front of the player.
-// Back faces are already culled, so skipping the camera-facing face makes the block see-through.
-// The region is a truncated cone (radius SteadyViewCutout.w at the camera, half of it near the player).
-// Its edge is dithered so that it fades out gradually.
-const float STEADYVIEW_KEEP_BEFORE_EYE = 0.7;
-const float STEADYVIEW_EDGE = 0.4;
-
-float steadyViewDither() {
-    // 4x4 Bayer matrix (0 to 1)
-    int x = int(mod(gl_FragCoord.x, 4.0));
-    int y = int(mod(gl_FragCoord.y, 4.0));
-    const float bayer[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
-    return (bayer[x + y * 4] + 0.5) / 16.0;
-}
-
-bool steadyViewCutout() {
-    float radius = SteadyViewCutout.w;
-    if (radius <= 0.0) {
-        return false;
-    }
-
-    vec3 toEye = SteadyViewCutout.xyz;
-    float length2 = dot(toEye, toEye);
-    float eyeDistance = sqrt(length2);
-    // Position along the line (0: camera, 1: eye). Stop a little before the eye
-    float t = dot(cameraRelativePos, toEye) / length2;
-    float stop = 1.0 - STEADYVIEW_KEEP_BEFORE_EYE / eyeDistance;
-    if (t <= 0.0 || t >= stop) {
-        return false;
-    }
-
-    float distanceFromLine = length(cameraRelativePos - toEye * t);
-    float localRadius = radius * mix(1.0, 0.5, t / stop);
-    if (distanceFromLine < localRadius) {
-        return true;
-    }
-
-    float edge = (distanceFromLine - localRadius) / STEADYVIEW_EDGE;
-    return edge < 1.0 && edge < steadyViewDither();
-}
 
 #ifndef OIT_ALPHA_ONLY
 layout(location = 0) out vec4 fragColor;
@@ -76,7 +37,8 @@ vec4 calculateFinalColor(vec4 color) {
 }
 
 void main() {
-    if (steadyViewCutout()) {
+    // Steady View: see-through cutout
+    if (steadyViewCutout(cameraRelativePos)) {
         discard;
     }
 

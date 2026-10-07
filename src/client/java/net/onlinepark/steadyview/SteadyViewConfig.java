@@ -34,9 +34,9 @@ public final class SteadyViewConfig {
 	public double edgeScrollSpeed = 90.0;
 	/** edgeTurnModeがPUSHのとき、押し込んだ量に対する回る速さ（標準の何%か。10〜300）。標準は1ドットで0.15度 */
 	public int edgePushSpeed = 100;
-	/** 試作: 三人称視点で、カメラを障害物の手前に寄せず、カメラとプレイヤーの間の障害物を透かして見せるか（SeeThrough） */
-	public boolean seeThroughObstacles = false;
-	/** 試作: 障害物を透かす範囲の半径（ブロック。カメラ側の値で、プレイヤー側はその半分） */
+	/** 三人称視点で、カメラを障害物の手前に寄せず、カメラとプレイヤーの間の障害物を透かして見せるか（SeeThrough） */
+	public boolean seeThroughObstacles = true;
+	/** 障害物を透かす範囲の半径（ブロック。カメラ側の値で、プレイヤー側はその半分） */
 	public double seeThroughRadius = 1.5;
 	/** 乗り物（ボート・トロッコ・馬等）に乗っている間、マイクラ本体による自動的な視点の変更を打ち消すか */
 	public boolean keepViewWhileRiding = true;
