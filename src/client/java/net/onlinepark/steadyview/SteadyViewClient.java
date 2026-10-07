@@ -82,6 +82,9 @@ public class SteadyViewClient implements ClientModInitializer {
 			}
 		}
 
+		// 障害物を透かすとき、元のカメラの位置から見えるマスを求め直す（SeeThrough）
+		VisibilityGrid.tick(minecraft);
+
 		int yawSteps = 0;
 		int pitchSteps = 0;
 		boolean level = false;

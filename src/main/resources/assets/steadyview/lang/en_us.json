@@ -31,8 +31,5 @@
 	"steadyview.config.edgePushSpeed": "Speed (Push)",
 	"steadyview.config.edgePushSpeed.tooltip": "How fast the view turns for how far you push the cursor when Screen Edge Turning is Push. 100% matches turning with the mouse at Minecraft's default sensitivity (0.15° per dot).",
 	"steadyview.config.seeThroughObstacles": "See Through Obstacles (3rd Person)",
-	"steadyview.config.seeThroughObstacles.tooltip": "In third-person view (F5), the camera does not move closer to you when walls are in the way. Instead, walls and mobs near the line between the camera and you are not drawn, so you can see through them. Things you see through cannot be targeted with the cursor.",
-	"steadyview.config.seeThroughRadius": "See-Through Radius",
-	"steadyview.config.seeThroughRadius.tooltip": "Radius of the see-through area at the camera side. It narrows to half near you.",
-	"steadyview.config.blocks": "%s blocks"
+	"steadyview.config.seeThroughObstacles.tooltip": "In third-person view (F5), the camera does not move closer to you when walls are in the way, and you can see through them. Only things that can be seen from where the camera would normally be (in front of the wall) or from your eyes are drawn, so caves and other hidden places are not revealed. Things that are not drawn cannot be targeted with the cursor."
 }

@@ -94,15 +94,17 @@ public final class ItemAim {
 	/** カーソルの方向にある一番手前のブロック・エンティティの点。何もなければ遠くの点。エンティティは中心を狙う。 */
 	private static Vec3 findTarget(final LocalPlayer player, final Vec3 from, final Vec3 direction) {
 		Vec3 to = from.add(direction.scale(AIM_RANGE));
-		// 障害物を透かしているとき（SeeThrough）は、消えて見えるブロック・エンティティを飛ばす
-		SeeThrough.Region region = SeeThrough.currentRegion(Minecraft.getInstance());
-		BlockHitResult blockHit = SeeThrough.clip(player.level(), new ClipContext(from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player), region);
+		// 障害物を透かしているとき（SeeThrough）は、描かれていないブロック・エンティティを飛ばす
+		Minecraft minecraft = Minecraft.getInstance();
+		BlockHitResult blockHit = SeeThrough.clip(
+			player.level(), new ClipContext(from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player), SeeThrough.hiding(minecraft)
+		);
 		Vec3 target = blockHit.getType() == HitResult.Type.MISS ? to : blockHit.getLocation();
 
 		AABB box = new AABB(from, target).inflate(1.0);
 		EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(
 			player, from, target, box,
-			EntitySelector.CAN_BE_PICKED.and(entity -> entity != player && (region == null || !region.contains(entity))), from.distanceToSqr(target)
+			EntitySelector.CAN_BE_PICKED.and(entity -> entity != player && !SeeThrough.shouldHide(minecraft, entity)), from.distanceToSqr(target)
 		);
 		return entityHit != null ? entityHit.getEntity().getBoundingBox().getCenter() : target;
 	}

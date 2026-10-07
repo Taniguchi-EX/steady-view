@@ -89,10 +89,11 @@ public final class CursorPicker {
 		double maxDistance = Math.max(blockRange, entityRange) + from.distanceTo(eye);
 		Vec3 to = from.add(direction.scale(maxDistance));
 
-		// 障害物を透かしているとき（SeeThrough）は、消えて見えるブロック・エンティティを飛ばす
-		SeeThrough.Region region = SeeThrough.currentRegion(Minecraft.getInstance());
+		// 障害物を透かしているとき（SeeThrough）は、描かれていないブロック・エンティティを飛ばす
+		Minecraft minecraft = Minecraft.getInstance();
+		VisibilityGrid.Result visibility = SeeThrough.hiding(minecraft);
 		BlockHitResult blockHitResult = SeeThrough.clip(
-			cameraEntity.level(), new ClipContext(from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, cameraEntity), region
+			cameraEntity.level(), new ClipContext(from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, cameraEntity), visibility
 		);
 		double blockDistanceSq = blockHitResult.getLocation().distanceToSqr(from);
 		double maxDistanceSq = maxDistance * maxDistance;
@@ -104,7 +105,7 @@ public final class CursorPicker {
 		AABB box = new AABB(from, to).inflate(1.0);
 		EntityHitResult entityHitResult = ProjectileUtil.getEntityHitResult(
 			cameraEntity, from, to, box,
-			EntitySelector.CAN_BE_PICKED.and(entity -> entity != cameraEntity && (region == null || !region.contains(entity))), maxDistanceSq
+			EntitySelector.CAN_BE_PICKED.and(entity -> entity != cameraEntity && !SeeThrough.shouldHide(minecraft, entity)), maxDistanceSq
 		);
 		HitResult hitResult = entityHitResult != null && entityHitResult.getLocation().distanceToSqr(from) < blockDistanceSq
 			? filterHitResult(entityHitResult, eye, entityRange)

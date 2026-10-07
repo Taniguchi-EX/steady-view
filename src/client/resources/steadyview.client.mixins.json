@@ -5,18 +5,22 @@
 	"client": [
 		"AvatarRenderStateMixin",
 		"AvatarRendererMixin",
+		"BlockEntityRenderDispatcherMixin",
 		"CameraMixin",
 		"CapeLayerMixin",
 		"EquipmentLayerRendererMixin",
 		"GlobalSettingsUniformMixin",
 		"HudMixin",
 		"InventoryScreenMixin",
+		"LevelExtractorMixin",
 		"LivingEntityRendererMixin",
 		"LocalPlayerAccessor",
 		"LocalPlayerMixin",
 		"MouseHandlerAccessor",
 		"MouseHandlerMixin",
-		"MultiPlayerGameModeMixin"
+		"MultiPlayerGameModeMixin",
+		"QuadParticleGroupMixin",
+		"SectionOcclusionGraphMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

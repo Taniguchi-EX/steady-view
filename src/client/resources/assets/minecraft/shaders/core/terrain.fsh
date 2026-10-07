@@ -1,5 +1,5 @@
 #version 330
-// Steady View: copied from Minecraft 26.3 and modified for the see-through cutout (search for "Steady View")
+// Steady View: copied from Minecraft 26.3 and modified to hide what cannot be seen from the original camera position (search for "Steady View")
 #extension GL_ARB_separate_shader_objects : require
 
 #include <minecraft:fog.glsl>
@@ -7,7 +7,7 @@
 #include <minecraft:texture_sampling.glsl>
 #include <minecraft:oit.glsl>
 #include <minecraft:terrainglobals.glsl>
-#include <steadyview:cutout.glsl>
+#include <steadyview:visibility.glsl>
 #ifndef MULTIDRAW_TERRAIN
     #include <minecraft:chunksection.glsl>
 #endif
@@ -19,8 +19,8 @@ layout(location = 1) in float cylindricalVertexDistance;
 layout(location = 2) in vec4 vertexColor;
 layout(location = 3) in vec2 texCoord0;
 layout(location = 4) in float chunkVisibility;
-// Steady View: camera-relative position for the see-through cutout
-layout(location = 5) in vec3 cameraRelativePos;
+// Steady View: position relative to the visibility grid corner
+layout(location = 5) in vec3 steadyViewGridPos;
 
 #ifndef OIT_ALPHA_ONLY
 layout(location = 0) out vec4 fragColor;
@@ -37,8 +37,8 @@ vec4 calculateFinalColor(vec4 color) {
 }
 
 void main() {
-    // Steady View: see-through cutout
-    if (steadyViewCutout(cameraRelativePos)) {
+    // Steady View: do not draw faces that cannot be seen from the original camera position
+    if (steadyViewHiddenFace(steadyViewGridPos, cross(dFdx(steadyViewGridPos), dFdy(steadyViewGridPos)))) {
         discard;
     }
 

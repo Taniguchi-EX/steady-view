@@ -1,5 +1,5 @@
 #version 330
-// Steady View: copied from Minecraft 26.3 and modified for the see-through cutout (search for "Steady View")
+// Steady View: copied from Minecraft 26.3 and modified to hide what cannot be seen from the original camera position (search for "Steady View")
 #extension GL_ARB_separate_shader_objects : require
 
 #include <minecraft:fog.glsl>
@@ -29,8 +29,8 @@ layout(location = 1) out float cylindricalVertexDistance;
 layout(location = 2) out vec4 vertexColor;
 layout(location = 3) out vec2 texCoord0;
 layout(location = 4) out float chunkVisibility;
-// Steady View: camera-relative position for the see-through cutout
-layout(location = 5) out vec3 cameraRelativePos;
+// Steady View: position relative to the visibility grid corner
+layout(location = 5) out vec3 steadyViewGridPos;
 
 void main() {
     vec3 pos = Position + (ChunkPosition - CameraBlockPos) + CameraOffset;
@@ -44,7 +44,7 @@ void main() {
     vertexColor = Color;
     #endif
     texCoord0 = UV0;
-    cameraRelativePos = pos;
+    steadyViewGridPos = Position + vec3(ChunkPosition - SteadyViewGridOrigin.xyz);
 
     const float chunkFullyVisibleRange = 16.0;
     float dist = length(pos);

@@ -31,8 +31,5 @@
 	"steadyview.config.edgePushSpeed": "速さ（押し込んだ分だけ）",
 	"steadyview.config.edgePushSpeed.tooltip": "「画面の端での回り方」が「押し込んだ分だけ」のとき、カーソルを押し込んだ量に対して視点が回る速さです。100%で、マイクラの既定のマウス感度で視点を動かしたときと同じ速さ（1ドットで0.15度）になります。",
 	"steadyview.config.seeThroughObstacles": "障害物を透かす（三人称）",
-	"steadyview.config.seeThroughObstacles.tooltip": "三人称視点（F5）で、カメラとプレイヤーの間に壁等があっても、カメラをプレイヤーに寄せません。代わりに、カメラとプレイヤーを結ぶ線の近くにある壁・モブ等を描かず、透かして見せます。透けて見える物は、カーソルで狙えません。",
-	"steadyview.config.seeThroughRadius": "透かす範囲",
-	"steadyview.config.seeThroughRadius.tooltip": "障害物を透かす範囲の半径です（カメラ側の大きさ。プレイヤーに近づくほど半分まで細くなります）。",
-	"steadyview.config.blocks": "%sブロック"
+	"steadyview.config.seeThroughObstacles.tooltip": "三人称視点（F5）で、カメラとプレイヤーの間に壁等があっても、カメラをプレイヤーに寄せず、壁等を透かして見せます。通常ならカメラを置く位置（壁の手前）か、プレイヤーの目から見える物だけを描くため、洞窟等の隠れた場所は見えません。描かれていない物は、カーソルで狙えません。"
 }
