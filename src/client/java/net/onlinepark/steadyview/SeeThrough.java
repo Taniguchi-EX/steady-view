@@ -9,6 +9,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -81,7 +82,12 @@ public final class SeeThrough {
 	}
 
 	/**
-	 * ブロックへの当たりを調べる（{@link Level#clip}と同じ）。ただし、透かす範囲の中で当たったブロックは飛ばし、その先を調べる。
+	 * ブロックへの当たりを調べる（{@link Level#clip}と同じ）。ただし、画面に描かれていない面への当たりは飛ばし、その先を調べる。
+	 * <ul>
+	 *   <li>透かす範囲の中の点（シェーダーで描かない）</li>
+	 *   <li>隣のブロックに覆われていて、もともと描かれない面（マイクラ本体が地形を作るときの判断（Block.shouldRenderFace）と同じ）。
+	 *       厚い壁の手前を透かすと奥のブロックの面が、カメラがブロックの中に入ると周りのブロックの面が、この状態で見えなくなる</li>
+	 * </ul>
 	 * regionがnullなら{@link Level#clip}と同じ。液体は調べない（ClipContext.Fluid.NONEのときだけ使う）。
 	 */
 	public static BlockHitResult clip(final Level level, final ClipContext context, final @Nullable Region region) {
@@ -93,7 +99,12 @@ public final class SeeThrough {
 			BlockState state = level.getBlockState(pos);
 			VoxelShape shape = ctx.getBlockShape(state, level, pos);
 			BlockHitResult hit = level.clipWithInteractionOverride(ctx.getFrom(), ctx.getTo(), pos, shape, state);
-			return hit != null && region.contains(hit.getLocation()) ? null : hit;
+			if (hit == null || region.contains(hit.getLocation())) {
+				return null;
+			}
+
+			Direction face = hit.getDirection();
+			return Block.shouldRenderFace(state, level.getBlockState(pos.relative(face)), face) ? hit : null;
 		}, ctx -> {
 			Vec3 delta = ctx.getFrom().subtract(ctx.getTo());
 			return BlockHitResult.miss(ctx.getTo(), Direction.getApproximateNearest(delta.x, delta.y, delta.z), BlockPos.containing(ctx.getTo()));

@@ -41,6 +41,7 @@ import net.onlinepark.steadyview.CursorPicker;
 import net.onlinepark.steadyview.EdgeTurnMode;
 import net.onlinepark.steadyview.PlayerOpacityHolder;
 import net.onlinepark.steadyview.RecommendedSettings;
+import net.onlinepark.steadyview.SeeThrough;
 import net.onlinepark.steadyview.SteadyViewClient;
 import net.onlinepark.steadyview.SteadyViewConfigScreen;
 import org.joml.Matrix4f;
@@ -630,6 +631,17 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		context.runOnClient(minecraft -> SteadyViewClient.config().seeThroughRadius = 1.5);
 		assertSameCenter(context, noWall, seeThrough, wallShown, "壁", 0.5, 0.4);
 
+		// 厚い壁（2ブロック）: 手前を透かすと、奥のブロックの面（隣のブロックに覆われてもともと描かれない面）が見えなくなる。
+		// 画面のあちこちにカーソルを置き、狙えるのは壁の外側の面のうち、透かす範囲の外の点だけであることを確かめる。
+		// （壁がカメラに近すぎると、画面に映る壁がすべて透かす範囲に入って壁全体が見えなくなるため、カメラから1.5ブロック離す）
+		server.runCommand("fill -4 -61 -2 4 -55 -1 minecraft:stone");
+		context.waitTicks(10);
+		context.takeScreenshot("steadyview-16c2-see-through-thick-wall");
+		assertNoHiddenTarget(context, new BlockPos(-4, -61, -2), new BlockPos(4, -55, -1), true);
+		server.runCommand("fill -4 -61 -2 4 -55 -1 minecraft:air");
+		server.runCommand("fill -4 -61 -2 4 -61 -1 minecraft:grass_block");
+		context.getInput().setCursorPos(centerX, centerY);
+
 		// カメラとプレイヤーの間に浮いたブタ（線の高さ）がいても、透けて見え、狙えない
 		server.runCommand("fill -4 -61 -2 4 -55 -2 minecraft:air");
 		server.runCommand("summon minecraft:pig 0.5 -58.85 -1.0 {NoAI:1b,NoGravity:1b,Rotation:[90f,0f]}");
@@ -653,7 +665,8 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		server.runCommand("fill -4 -61 -6 4 -55 -2 minecraft:stone");
 		context.waitTicks(10);
 		Path insideWall = context.takeScreenshot("steadyview-16f-see-through-camera-inside");
-		for (double[] point : new double[][]{{0.5, 0.5}, {0.4, 0.5}, {0.5, 0.8}}) {
+		// （画面左下はチャットの文字が出たり消えたりするため、比べる点に使わない）
+		for (double[] point : new double[][]{{0.5, 0.5}, {0.4, 0.5}, {0.8, 0.65}}) {
 			int[] noWallColor = averageColor(noWall, point[0], point[1]);
 			int[] insideColor = averageColor(insideWall, point[0], point[1]);
 			int difference = 0;
@@ -663,6 +676,9 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 			check(difference < 30, "カメラが壁の中にあるとき、プレイヤーや地形が見えない（位置" + Arrays.toString(point) + "、壁なし: "
 				+ Arrays.toString(noWallColor) + " / 壁の中: " + Arrays.toString(insideColor) + "）");
 		}
+		// カメラが壁の中にあると壁のブロックはどれも描かれないため、どこにカーソルを置いても壁は狙えない
+		assertNoHiddenTarget(context, new BlockPos(-4, -61, -6), new BlockPos(4, -55, -2), false);
+		context.getInput().setCursorPos(centerX, centerY);
 		server.runCommand("fill -4 -61 -6 4 -55 -2 minecraft:air");
 		server.runCommand("fill -4 -61 -6 4 -61 -2 minecraft:grass_block");
 
@@ -722,6 +738,68 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		server.runCommand("fill -6 -61 -8 6 -61 6 minecraft:grass_block");
 		server.runCommand("fill -6 -60 -8 6 -54 6 minecraft:air");
 		setUpStage(context, server);
+	}
+
+	/**
+	 * 画面のあちこちにカーソルを置き、描かれていないブロックを狙えないことを確かめる。
+	 * wallFrom〜wallToの箱の形の壁について、outerFacesVisibleなら、狙えるのは壁の外側の面（隣が空気の面）のうち透かす範囲の外の点だけ。
+	 * falseなら（カメラが壁の中にあるとき）壁のブロックはどれも狙えない。
+	 */
+	private static void assertNoHiddenTarget(
+		final ClientGameTestContext context, final BlockPos wallFrom, final BlockPos wallTo, final boolean outerFacesVisible
+	) {
+		Window window = context.computeOnClient(Minecraft::getWindow);
+		int wallHits = 0;
+		for (double y : new double[]{0.3, 0.45, 0.55, 0.7, 0.85}) {
+			for (double x : new double[]{0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9}) {
+				context.getInput().setCursorPos(window.getScreenWidth() * x, window.getScreenHeight() * y);
+				context.waitTick();
+				String problem = context.computeOnClient(minecraft -> {
+					if (!(minecraft.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) {
+						return null;
+					}
+
+					BlockPos pos = hit.getBlockPos();
+					boolean inWall = pos.getX() >= wallFrom.getX() && pos.getX() <= wallTo.getX()
+						&& pos.getY() >= wallFrom.getY() && pos.getY() <= wallTo.getY()
+						&& pos.getZ() >= wallFrom.getZ() && pos.getZ() <= wallTo.getZ();
+					if (!inWall) {
+						return null;
+					}
+
+					if (!outerFacesVisible) {
+						return "描かれていない壁のブロックを狙えた";
+					}
+
+					// 壁の外側の面（隣が壁の外）か
+					BlockPos neighbor = pos.relative(hit.getDirection());
+					boolean outerFace = neighbor.getX() < wallFrom.getX() || neighbor.getX() > wallTo.getX()
+						|| neighbor.getY() < wallFrom.getY() || neighbor.getY() > wallTo.getY()
+						|| neighbor.getZ() < wallFrom.getZ() || neighbor.getZ() > wallTo.getZ();
+					if (!outerFace) {
+						return "壁の内側の（描かれていない）面を狙えた";
+					}
+
+					SeeThrough.Region region = SeeThrough.currentRegion(minecraft);
+					if (region != null && region.contains(hit.getLocation())) {
+						return "透かす範囲の中の点を狙えた";
+					}
+
+					return "OK";
+				});
+				if ("OK".equals(problem)) {
+					wallHits++;
+				} else if (problem != null) {
+					String actual = context.computeOnClient(minecraft -> describe(minecraft.hitResult) + " " + ((BlockHitResult)minecraft.hitResult).getDirection());
+					check(false, problem + "（カーソル: " + x + ", " + y + " / 狙い: " + actual + "）");
+				}
+			}
+		}
+
+		if (outerFacesVisible) {
+			// 見えている壁は、画面の端の方では狙える（何も狙えなくなっていないことの確認）
+			check(wallHits > 0, "見えている壁の面を1つも狙えない");
+		}
 	}
 
 	/**
