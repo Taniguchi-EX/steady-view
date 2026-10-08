@@ -96,15 +96,16 @@ public final class ItemAim {
 		Vec3 to = from.add(direction.scale(AIM_RANGE));
 		// 障害物を透かしているとき（SeeThrough）は、描かれていないブロック・エンティティを飛ばす
 		Minecraft minecraft = Minecraft.getInstance();
+		SeeThrough.Region region = SeeThrough.currentRegion(minecraft);
 		BlockHitResult blockHit = SeeThrough.clip(
-			player.level(), new ClipContext(from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player), SeeThrough.hiding(minecraft)
+			player.level(), new ClipContext(from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player), SeeThrough.hiding(minecraft), region
 		);
 		Vec3 target = blockHit.getType() == HitResult.Type.MISS ? to : blockHit.getLocation();
 
 		AABB box = new AABB(from, target).inflate(1.0);
 		EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(
 			player, from, target, box,
-			EntitySelector.CAN_BE_PICKED.and(entity -> entity != player && !SeeThrough.shouldHide(minecraft, entity)), from.distanceToSqr(target)
+			EntitySelector.CAN_BE_PICKED.and(entity -> entity != player && !SeeThrough.hidesFromCursor(minecraft, region, entity)), from.distanceToSqr(target)
 		);
 		return entityHit != null ? entityHit.getEntity().getBoundingBox().getCenter() : target;
 	}

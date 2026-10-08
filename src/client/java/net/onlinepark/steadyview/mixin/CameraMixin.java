@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import net.onlinepark.steadyview.SeeThrough;
+import net.onlinepark.steadyview.VisibilityGrid;
 import org.joml.Vector3f;
 import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
@@ -46,12 +47,18 @@ public abstract class CameraMixin {
 		this.steadyview$viewpointSet = false;
 	}
 
-	/** 一人称視点等で、元のカメラの位置を求めなかったフレームは、透かさない */
+	/**
+	 * 一人称視点等で、元のカメラの位置を求めなかったフレームは、透かさない。
+	 * 求めたときは、元のカメラの位置や目のマスが変わっていれば、見えるマスの求め直しをすぐに始める（向きを変えた直後等に、古い結果を使う時間を短くするため）
+	 */
 	@Inject(method = "alignWithEntity", at = @At("TAIL"))
 	private void steadyview$endAlign(final float partialTicks, final CallbackInfo ci) {
 		if (!this.steadyview$viewpointSet) {
 			SeeThrough.setViewpoint(null);
+			return;
 		}
+
+		VisibilityGrid.update(Minecraft.getInstance());
 	}
 
 	/**

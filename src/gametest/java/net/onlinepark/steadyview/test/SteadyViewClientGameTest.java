@@ -596,8 +596,8 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 
 	/**
 	 * 三人称視点で、カメラを障害物の手前に寄せず、障害物を透かして見せること（SeeThrough）。
-	 * 透かすときは、元のカメラの位置（マイクラ本体ならカメラを寄せる位置）とプレイヤーの目のどちらからも見えない物を描かない。
-	 * 障害物のカメラ側の面は、どちらからも見えないため描かれず、障害物がないときと同じ景色が見える。
+	 * 透かすときは、カメラからプレイヤーへの線の近く（透かす範囲）にある物と、元のカメラの位置（マイクラ本体ならカメラを寄せる位置）と
+	 * プレイヤーの目のどちらからも見えない物を描かない。障害物のカメラ側の面は、どちらからも見えないため描かれず、障害物がないときと同じ景色が見える。
 	 * プレイヤーは(0.5, -60, 0.5)で南を向き、カメラはその4ブロック後ろ（z=-3.5）にある。
 	 */
 	private static void testSeeThrough(final ClientGameTestContext context, final TestServerContext server) {
@@ -631,9 +631,16 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 			server.runCommand(command);
 		}
 		context.waitTicks(20);
-		// 壁がないとき: 画面の中央にプレイヤーの頭が映る。障害物がないので、何も隠さない
+		// 壁がないとき: 画面の中央にプレイヤーの頭が映る。
+		// 三人称視点では、障害物がなくても見えない物を隠す（元のカメラの位置はカメラの位置と同じ）が、見た目は透かさないときと変わらない
 		Path noWall = context.takeScreenshot("steadyview-16a-see-through-no-wall");
-		check(context.computeOnClient(minecraft -> SeeThrough.hiding(minecraft) == null), "障害物がないのに、見えない物を隠している");
+		check(context.computeOnClient(minecraft -> SeeThrough.hiding(minecraft) != null), "三人称視点なのに、見えるマスを求めていない");
+		context.runOnClient(minecraft -> SteadyViewClient.config().seeThroughObstacles = false);
+		context.waitTicks(5);
+		Path noWallOff = context.takeScreenshot("steadyview-16a2-see-through-off-no-wall");
+		context.runOnClient(minecraft -> SteadyViewClient.config().seeThroughObstacles = true);
+		context.waitTicks(5);
+		assertSameView(noWallOff, noWall, "障害物がないときの景色が、透かす設定のオン・オフで変わった");
 
 		// プレイヤーの後ろ（カメラとの間）に石の壁を立てる
 		server.runCommand("fill -4 -61 -2 4 -55 -2 minecraft:stone");
@@ -642,7 +649,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		check(cameraZ < -3.0, "壁があっても、カメラがプレイヤーに寄った（カメラのz: " + cameraZ + "）");
 		check(context.computeOnClient(minecraft -> SeeThrough.hiding(minecraft) != null), "壁があるのに、見えない物を隠していない");
 		Path seeThrough = context.takeScreenshot("steadyview-16b-see-through-wall");
-		assertSameView(noWall, seeThrough, "壁を透かしたとき");
+		assertSameView(noWall, seeThrough, "壁を透かしたときの景色が、壁がないときと違う");
 		// 透けて見える壁は、カーソルで狙えない
 		String throughWall = context.computeOnClient(minecraft -> describe(minecraft.hitResult));
 		check(!(throughWall.startsWith("BLOCK ") && throughWall.contains("z=-2")), "透けて見える壁をカーソルで狙えてしまう（実際: " + throughWall + "）");
@@ -651,10 +658,58 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		server.runCommand("fill -4 -61 -2 4 -55 -1 minecraft:stone");
 		context.waitTicks(10);
 		Path thickWall = context.takeScreenshot("steadyview-16c-see-through-thick-wall");
-		assertSameView(noWall, thickWall, "厚い壁を透かしたとき");
+		assertSameView(noWall, thickWall, "厚い壁を透かしたときの景色が、壁がないときと違う");
 		assertNoHiddenTarget(context, new BlockPos(-4, -61, -2), new BlockPos(4, -55, -1));
 		server.runCommand("fill -4 -61 -2 4 -55 -1 minecraft:air");
 		server.runCommand("fill -4 -61 -2 4 -61 -1 minecraft:grass_block");
+		context.getInput().setCursorPos(centerX, centerY);
+
+		// 葉の壁（向こうが見えるブロック）は、元のカメラの位置から葉越しに見えるため、見えない物を隠す処理では消えない。
+		// 透かす範囲（線の近く）の葉は描かれず、プレイヤーが見え、狙えない。範囲の半径を0にすると、画面の中央に葉が映る
+		server.runCommand("fill -4 -61 -2 4 -55 -2 minecraft:oak_leaves[persistent=true]");
+		context.waitTicks(10);
+		Path leaves = context.takeScreenshot("steadyview-16c2-see-through-leaves");
+		assertSameColor(noWall, leaves, 0.5, 0.5, "カメラとプレイヤーの間の葉が、透けて見えない（画面の中央）");
+		String throughLeaves = context.computeOnClient(minecraft -> describe(minecraft.hitResult));
+		check(!(throughLeaves.startsWith("BLOCK ") && throughLeaves.contains("z=-2")), "透けて見える葉をカーソルで狙えてしまう（実際: " + throughLeaves + "）");
+		context.runOnClient(minecraft -> SteadyViewClient.config().seeThroughRadius = 0.0);
+		context.waitTicks(5);
+		Path leavesShown = context.takeScreenshot("steadyview-16c3-see-through-leaves-radius-0");
+		context.runOnClient(minecraft -> SteadyViewClient.config().seeThroughRadius = 1.5);
+		assertDifferentColor(noWall, leavesShown, 0.5, 0.5, "透かす範囲の半径を0にしても、葉が見えない（画面の中央）");
+		server.runCommand("fill -4 -61 -2 4 -55 -2 minecraft:air");
+		server.runCommand("fill -4 -61 -2 4 -61 -2 minecraft:grass_block");
+
+		// 壁がなく、カメラとプレイヤーの間に浮いたブタ（線の高さ）がいるとき: 透かす範囲の中にいるため描かれず、狙えない。
+		// 範囲の半径を0にすると、画面の中央にブタが映る
+		server.runCommand("summon minecraft:pig 0.5 -58.85 -1.0 {NoAI:1b,NoGravity:1b,Rotation:[90f,0f]}");
+		context.waitTicks(10);
+		Path pigOnLine = context.takeScreenshot("steadyview-16c4-see-through-pig-on-line");
+		assertSameColor(noWall, pigOnLine, 0.5, 0.5, "カメラとプレイヤーの間のブタが、透けて見えない（画面の中央）");
+		String throughPigOnLine = context.computeOnClient(minecraft -> describe(minecraft.hitResult));
+		check(!throughPigOnLine.contains("pig"), "透けて見えるブタをカーソルで狙えてしまう（実際: " + throughPigOnLine + "）");
+		context.runOnClient(minecraft -> SteadyViewClient.config().seeThroughRadius = 0.0);
+		context.waitTicks(5);
+		Path pigShown = context.takeScreenshot("steadyview-16c5-see-through-pig-radius-0");
+		context.runOnClient(minecraft -> SteadyViewClient.config().seeThroughRadius = 1.5);
+		assertDifferentColor(noWall, pigShown, 0.5, 0.5, "透かす範囲の半径を0にしても、ブタが見えない（画面の中央）");
+		// （倒すと倒れる演出と煙が2秒ほど続くため、消えるまで待つ）
+		server.runCommand("kill @e[type=minecraft:pig]");
+		server.runCommand("kill @e[type=minecraft:item]");
+		context.waitTicks(60);
+
+		// 線のすぐ横のブロック（マイクラ本体ならカメラを寄せない位置）も、透かす範囲の中の面は描かれず、狙えない
+		server.runCommand("setblock 1 -59 -2 minecraft:stone");
+		context.waitTicks(10);
+		check(context.computeOnClient(minecraft -> SeeThrough.viewpoint() != null && !SeeThrough.viewpoint().obstructed()),
+			"線の横のブロックで、マイクラ本体ならカメラを寄せる状態になった（テストの配置の誤り）");
+		// （カメラから見えるブロックの面は、西（x=1）の面。その中心は線から0.5ブロック）
+		moveCursorTo(context, new Vec3(1.0, -58.5, -1.5));
+		context.waitTicks(2);
+		context.takeScreenshot("steadyview-16c6-see-through-beside-line");
+		String besideLine = context.computeOnClient(minecraft -> describe(minecraft.hitResult));
+		check(!(besideLine.startsWith("BLOCK ") && besideLine.contains("x=1, y=-59, z=-2")), "透かす範囲の中の、線の横のブロックを狙えてしまう（実際: " + besideLine + "）");
+		server.runCommand("setblock 1 -59 -2 minecraft:air");
 		context.getInput().setCursorPos(centerX, centerY);
 
 		// 壁のカメラ側にあるブロック（元のカメラの位置からも目からも見えない）は描かれず、狙えない。
@@ -700,7 +755,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		server.runCommand("fill -4 -61 -6 4 -55 -2 minecraft:stone");
 		context.waitTicks(10);
 		Path insideWall = context.takeScreenshot("steadyview-16f-see-through-camera-inside");
-		assertSameView(noWall, insideWall, "カメラが壁の中にあるとき");
+		assertSameView(noWall, insideWall, "カメラが壁の中にあるときの景色が、壁がないときと違う");
 		assertNoHiddenTarget(context, new BlockPos(-4, -61, -6), new BlockPos(4, -55, -2));
 		context.getInput().setCursorPos(centerX, centerY);
 
@@ -711,7 +766,7 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		context.waitTicks(10);
 		Path cave = context.takeScreenshot("steadyview-16g-see-through-hidden-cave");
 		assertNotGold(context, cave, new Vec3(0.5, -58.5, -2.0), "壁の中の洞窟に面した金ブロック");
-		assertSameView(noWall, cave, "壁の中に洞窟があるとき");
+		assertSameView(noWall, cave, "壁の中に洞窟があるときの景色が、壁がないときと違う");
 		// 目より高い柱があると、柱の向こうの、カメラからは見えても元のカメラの位置からは見えない所は描かれない（スクリーンショットで確かめる）
 		server.runCommand("fill -4 -61 -6 4 -55 -2 minecraft:air");
 		server.runCommand("fill -4 -61 -6 4 -61 -2 minecraft:grass_block");
@@ -737,10 +792,15 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		context.setScreen(() -> null);
 		context.getInput().setCursorPos(centerX, centerY);
 
-		// 設定画面: 透かす設定をボタンでオフにできる
+		// 設定画面: 透かす範囲を2ブロックにし、透かす設定をオフにすると、範囲のスライダーは押せなくなる
 		pressSteadyViewKey(context, "open_settings");
+		clickWidget(context, screen -> screen.seeThroughRadiusWidget(), 3.0 / 5.0);
+		double radius = context.computeOnClient(minecraft -> SteadyViewClient.config().seeThroughRadius);
+		check(radius == 2.0, "スライダーで透かす範囲を2ブロックにできない（実際: " + radius + "）");
 		clickWidget(context, screen -> screen.seeThroughObstaclesWidget(), 0.5);
 		check(!context.computeOnClient(minecraft -> SteadyViewClient.config().seeThroughObstacles), "ボタンで透かす設定をオフにできない");
+		check(!context.computeOnClient(minecraft -> ((SteadyViewConfigScreen)minecraft.gui.screen()).seeThroughRadiusWidget().active),
+			"透かす設定がオフなのに、範囲のスライダーが押せる");
 		context.takeScreenshot("steadyview-16j-settings-see-through");
 		context.runOnClient(minecraft -> minecraft.gui.screen().onClose());
 		context.getInput().setCursorPos(centerX, centerY);
@@ -758,7 +818,10 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		server.runCommand("tp @a 0.5 -60 -0.5 180 0");
 		context.waitTicks(10);
 		Path firstPersonOff = context.takeScreenshot("steadyview-16l-first-person-off");
-		context.runOnClient(minecraft -> SteadyViewClient.config().seeThroughObstacles = true);
+		context.runOnClient(minecraft -> {
+			SteadyViewClient.config().seeThroughObstacles = true;
+			SteadyViewClient.config().seeThroughRadius = 1.5;
+		});
 		context.waitTicks(5);
 		Path firstPersonOn = context.takeScreenshot("steadyview-16m-first-person-on");
 		assertSameColor(firstPersonOff, firstPersonOn, 0.5, 0.5, "一人称視点で、有効にすると目の前の壁の見え方が変わった");
@@ -798,9 +861,9 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 	}
 
 	/** 2枚のスクリーンショットが、ほぼ同じ景色であること（色が変わった点が1%未満） */
-	private static void assertSameView(final Path expected, final Path actual, final String when) {
+	private static void assertSameView(final Path expected, final Path actual, final String message) {
 		double changed = changedRatio(expected, actual);
-		check(changed < 0.01, when + "の景色が、障害物がないときと違う（色が変わった点の割合: " + changed + "）");
+		check(changed < 0.01, message + "（色が変わった点の割合: " + changed + "）");
 	}
 
 	/** 2枚のスクリーンショットの、ある位置の色がほぼ同じであること */
@@ -813,6 +876,18 @@ public class SteadyViewClientGameTest implements FabricClientGameTest {
 		}
 
 		check(difference < 30, message + "（位置: " + x + ", " + y + " / 期待: " + Arrays.toString(expectedColor) + " / 実際: " + Arrays.toString(actualColor) + "）");
+	}
+
+	/** 2枚のスクリーンショットの、ある位置の色がはっきり違うこと（テストの対照。透かさなければ物が映ることの確認） */
+	private static void assertDifferentColor(final Path expected, final Path actual, final double x, final double y, final String message) {
+		int[] expectedColor = averageColor(expected, x, y);
+		int[] actualColor = averageColor(actual, x, y);
+		int difference = 0;
+		for (int i = 0; i < 3; i++) {
+			difference += Math.abs(expectedColor[i] - actualColor[i]);
+		}
+
+		check(difference > 40, message + "（位置: " + x + ", " + y + " / 比べた色: " + Arrays.toString(expectedColor) + " / 実際: " + Arrays.toString(actualColor) + "）");
 	}
 
 	/** ワールド内の点が映る位置が、金ブロックの色でないこと */

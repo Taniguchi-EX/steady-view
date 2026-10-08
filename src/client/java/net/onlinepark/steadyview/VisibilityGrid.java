@@ -3,6 +3,7 @@ package net.onlinepark.steadyview;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.stream.IntStream;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -23,7 +24,10 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>元のカメラの位置を中心にした{@value #SIZE}ブロック四方の範囲について、マスごとに「どちらかの位置から、光を通さないブロック
  * （{@link BlockState#isSolidRender()}。石・土等）に遮られずに線を引けるか」を調べる。ブロックの状態は表示用のスレッドで写し取り、
- * 計算は別のスレッドで行う。プレイヤーが動くか、{@value #REFRESH_TICKS}ティックたつごとに求め直す。
+ * 計算は別のスレッドで行う（高さごとに分けて、複数のCPUで同時に計算する）。
+ * 元のカメラの位置か目のマスが変わったとき（歩いた・向きを変えた等）は、その場で（毎フレームの、カメラの位置を決める処理の中で）
+ * 求め直しを始める。ブロックの変化を反映するため、動かなくても{@value #REFRESH_MILLIS}ミリ秒ごとに求め直す。
+ * 求め直している間は、前の結果を使う。
  *
  * <p>結果（{@link Result}）は、地形のシェーダー（assets/steadyview/shaders/include/visibility.glsl）と、モブ・チェスト等を描くか、
  * カーソルで狙えるかの判断で使う。範囲の外の点は、元のカメラの位置（または目）から点への線が範囲を出るマスで判断する。
@@ -34,8 +38,8 @@ public final class VisibilityGrid {
 	public static final int CELLS = SIZE * SIZE * SIZE;
 	/** 結果のビット列（int）の長さ */
 	public static final int WORDS = CELLS / 32;
-	/** ブロックの変化を反映するため、動かなくても求め直す間隔（ティック） */
-	private static final int REFRESH_TICKS = 5;
+	/** ブロックの変化を反映するため、動かなくても求め直す間隔（ミリ秒） */
+	private static final long REFRESH_MILLIS = 250;
 	/** 求めた後、元のカメラの位置がこれ以上動いたら、結果を使わない（テレポート等） */
 	private static final double MAX_DRIFT = 8.0;
 
@@ -51,37 +55,42 @@ public final class VisibilityGrid {
 
 	private static volatile @Nullable Result latest;
 	private static @Nullable Future<?> running;
-	private static int ticksSinceSubmit;
+	private static long submittedAt;
 	private static @Nullable BlockPos submittedCell;
 	private static @Nullable BlockPos submittedEyeCell;
 
 	private VisibilityGrid() {
 	}
 
-	/** 毎ティック呼ぶ（表示用のスレッド）。必要なら、ブロックの状態を写し取って求め直しを始める */
+	/** 毎ティック呼ぶ（表示用のスレッド）。透かさなくなったら、結果を捨てる */
 	public static void tick(final Minecraft minecraft) {
-		ClientLevel level = minecraft.level;
-		SeeThrough.Viewpoint viewpoint = SeeThrough.viewpoint();
-		if (level == null || viewpoint == null || !SeeThrough.isActive(minecraft)) {
+		if (minecraft.level == null || SeeThrough.viewpoint() == null || !SeeThrough.isActive(minecraft)) {
 			latest = null;
 			submittedCell = null;
-			return;
 		}
+	}
 
-		ticksSinceSubmit++;
-		if (running != null && !running.isDone()) {
+	/**
+	 * 毎フレーム、カメラの位置を決めた後に呼ぶ（表示用のスレッド。CameraMixin）。
+	 * 元のカメラの位置か目のマスが変わったか、前回から{@value #REFRESH_MILLIS}ミリ秒たったら、ブロックの状態を写し取って求め直しを始める。
+	 */
+	public static void update(final Minecraft minecraft) {
+		ClientLevel level = minecraft.level;
+		SeeThrough.Viewpoint viewpoint = SeeThrough.viewpoint();
+		if (level == null || viewpoint == null || !SeeThrough.isActive(minecraft) || running != null && !running.isDone()) {
 			return;
 		}
 
 		BlockPos cell = BlockPos.containing(viewpoint.original());
 		BlockPos eyeCell = BlockPos.containing(viewpoint.eye());
 		Result current = latest;
+		long now = System.nanoTime();
 		boolean moved = current == null || current.level != level || !cell.equals(submittedCell) || !eyeCell.equals(submittedEyeCell);
-		if (!moved && ticksSinceSubmit < REFRESH_TICKS) {
+		if (!moved && now - submittedAt < REFRESH_MILLIS * 1_000_000L) {
 			return;
 		}
 
-		ticksSinceSubmit = 0;
+		submittedAt = now;
 		submittedCell = cell;
 		submittedEyeCell = eyeCell;
 		BlockPos min = cell.offset(-SIZE / 2, -SIZE / 2, -SIZE / 2);
@@ -107,7 +116,8 @@ public final class VisibilityGrid {
 		// 目がブロックの中にあるとき（窒息しているとき等）は、目からは調べない（そこから線を引くと、ブロックの向こうが見えてしまう）
 		boolean useEye = inside(eyeInGrid.x, eyeInGrid.y, eyeInGrid.z) && !isOpaque(cells, eyeInGrid);
 		int[] bits = new int[WORDS];
-		for (int y = 0; y < SIZE; y++) {
+		// 高さごとに分けて同時に計算する（1つの高さのマス（SIZE×SIZE個）は、ビット列の別々のintに入るため、書き込みがぶつからない）
+		IntStream.range(0, SIZE).parallel().forEach(y -> {
 			for (int z = 0; z < SIZE; z++) {
 				for (int x = 0; x < SIZE; x++) {
 					int index = index(x, y, z);
@@ -122,7 +132,7 @@ public final class VisibilityGrid {
 					}
 				}
 			}
-		}
+		});
 
 		return new Result(level, snapshot.minX, snapshot.minY, snapshot.minZ, viewpointInGrid, useEye ? eyeInGrid : null, bits);
 	}
@@ -395,7 +405,8 @@ public final class VisibilityGrid {
 			int fromSectionX = SectionPos.blockToSectionCoord(this.minX);
 			int fromSectionY = SectionPos.blockToSectionCoord(this.minY);
 			int fromSectionZ = SectionPos.blockToSectionCoord(this.minZ);
-			for (int y = 0; y < SIZE; y++) {
+			// 高さごとに分けて同時に読む（写しは読むだけなので、同時に読んでも問題ない）
+			IntStream.range(0, SIZE).parallel().forEach(y -> {
 				int worldY = this.minY + y;
 				int sy = SectionPos.blockToSectionCoord(worldY) - fromSectionY;
 				for (int z = 0; z < SIZE; z++) {
@@ -413,7 +424,7 @@ public final class VisibilityGrid {
 						cells[index(x, y, z)] = state.isSolidRender() ? OPAQUE : state.isAir() ? AIR : NON_OPAQUE;
 					}
 				}
-			}
+			});
 
 			return cells;
 		}

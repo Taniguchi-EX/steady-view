@@ -36,6 +36,8 @@ public final class SteadyViewConfig {
 	public int edgePushSpeed = 100;
 	/** 三人称視点で、カメラを障害物の手前に寄せず、カメラとプレイヤーの間の障害物を透かして見せるか（SeeThrough） */
 	public boolean seeThroughObstacles = true;
+	/** 障害物を透かす範囲の半径（ブロック。カメラ側の値で、プレイヤー側はその半分） */
+	public double seeThroughRadius = 1.5;
 	/** 乗り物（ボート・トロッコ・馬等）に乗っている間、マイクラ本体による自動的な視点の変更を打ち消すか */
 	public boolean keepViewWhileRiding = true;
 	/** 弓・雪玉等の飛ばすアイテムを、カーソルの方向へ飛ばすか */
@@ -62,6 +64,7 @@ public final class SteadyViewConfig {
 				config.edgeScrollSpeed = getPositiveDouble(properties, "edgeScrollSpeed", config.edgeScrollSpeed);
 				config.edgePushSpeed = getIntInRange(properties, "edgePushSpeed", config.edgePushSpeed, 10, 300);
 				config.seeThroughObstacles = getBoolean(properties, "seeThroughObstacles", config.seeThroughObstacles);
+				config.seeThroughRadius = getPositiveDouble(properties, "seeThroughRadius", config.seeThroughRadius);
 				config.keepViewWhileRiding = getBoolean(properties, "keepViewWhileRiding", config.keepViewWhileRiding);
 				config.aimItemsAtCursor = getBoolean(properties, "aimItemsAtCursor", config.aimItemsAtCursor);
 				config.recommendedSettingsApplied = getBoolean(properties, "recommendedSettingsApplied", config.recommendedSettingsApplied);
@@ -92,6 +95,7 @@ public final class SteadyViewConfig {
 		properties.setProperty("edgeScrollSpeed", Double.toString(this.edgeScrollSpeed));
 		properties.setProperty("edgePushSpeed", Integer.toString(this.edgePushSpeed));
 		properties.setProperty("seeThroughObstacles", Boolean.toString(this.seeThroughObstacles));
+		properties.setProperty("seeThroughRadius", Double.toString(this.seeThroughRadius));
 		properties.setProperty("keepViewWhileRiding", Boolean.toString(this.keepViewWhileRiding));
 		properties.setProperty("aimItemsAtCursor", Boolean.toString(this.aimItemsAtCursor));
 		properties.setProperty("recommendedSettingsApplied", Boolean.toString(this.recommendedSettingsApplied));
